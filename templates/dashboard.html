@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block navbar %}
+<nav class="navbar">
+  <div class="navbar-brand" onclick="location.href='{{ url_for('dashboard') }}'">
+    <div class="logo">R</div>
+    <span>Runny</span>
+  </div>
+  <ul class="navbar-nav">
+    <li><a href="{{ url_for('dashboard') }}" class="active">Dashboard</a></li>
+    <li><a href="{{ url_for('activities') }}">Activities</a></li>
+  </ul>
+  <div class="navbar-user">
+    {% if athlete_avatar %}
+      <img src="{{ athlete_avatar }}" alt="avatar" class="navbar-avatar" />
+    {% endif %}
+    <span class="text-sm">{{ athlete_name }}</span>
+    <a href="{{ url_for('logout') }}" class="btn btn-ghost text-sm">Logout</a>
+  </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <!-- Header -->
+  <div class="page-header">
+    <h1>Dashboard</h1>
+    <button class="btn btn-primary" id="sync-btn" onclick="syncActivities()">
+      <span id="sync-text">↻ Sync Activities</span>
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="section">
+    <div class="stats-grid">
+      <div class="card stat-card fade-in">
+        <span class="stat-label">Total Runs</span>
+        <span class="stat-value">{{ total_runs }}</span>
+      </div>
+      <div class="card stat-card fade-in">
+        <span class="stat-label">Avg Score</span>
+        <span class="stat-value">{{ avg_score }}</span>
+      </div>
+      <div class="card stat-card fade-in">
+        <span class="stat-label">Best Score</span>
+        <span class="stat-value">{{ best_score }}</span>
+      </div>
+      <div class="card stat-card fade-in">
+        <span class="stat-label">Improvement</span>
+        <span class="stat-value" style="color: {{ get_trend_color(improvement.trend) }}">
+          {{ get_trend_icon(improvement.trend) }}
+          {% if improvement.improvement_pct > 0 %}+{% endif %}{{ improvement.improvement_pct }}%
+        </span>
+        <span class="stat-sub">EWMA {{ improvement.current_ewma }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Improvement Chart -->
+  <div class="section">
+    <h2 class="section-title">Score Trend</h2>
+    <div class="card card-flat">
+      <div class="chart-container">
+        <canvas id="improvement-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Activities -->
+  <div class="section">
+    <div class="flex justify-between items-center mb-md">
+      <h2 class="section-title" style="margin-bottom:0">Recent Runs</h2>
+      <a href="{{ url_for('activities') }}" class="btn btn-ghost text-sm">View all →</a>
+    </div>
+    {% if recent %}
+      {% for a in recent %}
+      <div class="card activity-card fade-in" onclick="location.href='{{ url_for('activity_detail', activity_id=a.id) }}'">
+        <div class="score-badge" style="background: {{ get_score_color(a.runny_score) }}20; color: {{ get_score_color(a.runny_score) }}; --score-color: {{ get_score_color(a.runny_score) }}; --score-pct: {{ a.runny_score or 0 }}">
+          {{ a.runny_score or '—' }}
+        </div>
+        <div class="activity-info">
+          <div class="activity-name">{{ a.name }}</div>
+          <div class="activity-meta">
+            <span>📅 {{ a.start_date[:10] }}</span>
+            <span>📏 {{ a.distance | distance_km }} km</span>
+            <span>⏱️ {{ a.moving_time | duration }}</span>
+            <span>🏃 {{ a.pace | pace }} /km</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="card empty-state">
+        <div class="empty-state-icon">🏃</div>
+        <p>No activities yet. Click <strong>Sync Activities</strong> to import from Strava.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Sync Selection Modal -->
+<div id="sync-modal" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Select Activities to Import</h2>
+      <button class="btn btn-ghost" onclick="closeSyncModal()">✕</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost text-sm" onclick="toggleAllSync(true)">Select All</button>
+      <button class="btn btn-ghost text-sm" onclick="toggleAllSync(false)">Deselect All</button>
+      <span id="sync-selected-count" class="text-sm text-muted" style="margin-left:auto">0 selected</span>
+    </div>
+    <div id="sync-list" class="modal-body">
+      <div class="loading">
+        <div class="spinner"></div>
+        <span class="loading-text">Fetching from Strava…</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeSyncModal()">Cancel</button>
+      <button class="btn btn-primary" id="import-btn" onclick="importSelected()">Import Selected</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+  // ─── Sync Modal ────────────────────────────────────────
+  let previewActivities = [];
+
+  async function syncActivities() {
+    document.getElementById('sync-modal').style.display = 'flex';
+    const listEl = document.getElementById('sync-list');
+    listEl.innerHTML = '<div class="loading"><div class="spinner"></div><span class="loading-text">Fetching from Strava…</span></div>';
+    updateSelectedCount();
+
+    try {
+      const res = await fetch('/api/sync/preview', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Fetch failed');
+
+      previewActivities = data.activities || [];
+      if (previewActivities.length === 0) {
+        listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><p>All activities are already imported!</p></div>';
+        return;
+      }
+
+      listEl.innerHTML = previewActivities.map(a => {
+        const dist = (a.distance / 1000).toFixed(2);
+        const mins = Math.floor(a.moving_time / 60);
+        const secs = String(a.moving_time % 60).padStart(2, '0');
+        const paceM = Math.floor(a.pace / 60);
+        const paceS = String(Math.floor(a.pace % 60)).padStart(2, '0');
+        const date = a.start_date.slice(0, 10);
+
+        return `
+          <label class="sync-item card" for="sync-${a.id}">
+            <input type="checkbox" id="sync-${a.id}" value="${a.id}" checked onchange="updateSelectedCount()" />
+            <div class="activity-info">
+              <div class="activity-name">${a.name}</div>
+              <div class="activity-meta">
+                <span>📅 ${date}</span>
+                <span>📏 ${dist} km</span>
+                <span>⏱️ ${mins}:${secs}</span>
+                <span>🏃 ${paceM}:${paceS} /km</span>
+              </div>
+            </div>
+          </label>`;
+      }).join('');
+      updateSelectedCount();
+    } catch (e) {
+      listEl.innerHTML = `<div class="empty-state"><p class="text-accent">Error: ${e.message}</p></div>`;
+    }
+  }
+
+  function closeSyncModal() {
+    document.getElementById('sync-modal').style.display = 'none';
+  }
+
+  function toggleAllSync(checked) {
+    document.querySelectorAll('#sync-list input[type=checkbox]').forEach(cb => cb.checked = checked);
+    updateSelectedCount();
+  }
+
+  function updateSelectedCount() {
+    const checked = document.querySelectorAll('#sync-list input[type=checkbox]:checked').length;
+    const el = document.getElementById('sync-selected-count');
+    if (el) el.textContent = `${checked} selected`;
+  }
+
+  async function importSelected() {
+    const checkboxes = document.querySelectorAll('#sync-list input[type=checkbox]:checked');
+    const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+    if (ids.length === 0) {
+      showToast('No activities selected', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('import-btn');
+    btn.disabled = true;
+    btn.textContent = 'Importing…';
+
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Imported ${data.synced} activities (${data.total} total)`);
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        showToast(data.error || 'Import failed', 'error');
+      }
+    } catch (e) {
+      showToast('Error: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Import Selected';
+    }
+  }
+
+  // ─── Chart ─────────────────────────────────────────────
+  (async function() {
+    try {
+      const res = await fetch('/api/chart-data');
+      const data = await res.json();
+      const history = data.ewma_history || [];
+
+      if (history.length < 2) return;
+
+      const labels = history.map(h => h.date.slice(0, 10));
+      const scores = history.map(h => h.score);
+      const ewma = history.map(h => h.ewma);
+
+      const ctx = document.getElementById('improvement-chart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Score',
+              data: scores,
+              borderColor: 'rgba(255, 107, 53, 0.4)',
+              backgroundColor: 'rgba(255, 107, 53, 0.08)',
+              fill: true,
+              pointRadius: 3,
+              pointBackgroundColor: '#ff6b35',
+              tension: 0.3,
+              borderWidth: 1.5,
+            },
+            {
+              label: 'Trend (EWMA)',
+              data: ewma,
+              borderColor: '#00e676',
+              borderWidth: 2.5,
+              pointRadius: 0,
+              tension: 0.4,
+              fill: false,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            legend: {
+              labels: { color: '#a0a3b8', font: { family: 'Inter' } },
+            },
+            tooltip: {
+              backgroundColor: '#161c41',
+              titleColor: '#f0f0f5',
+              bodyColor: '#a0a3b8',
+              borderColor: 'rgba(255,255,255,0.06)',
+              borderWidth: 1,
+            },
+          },
+          scales: {
+            x: {
+              ticks: { color: '#6b6f88', maxTicksLimit: 10, font: { size: 11 } },
+              grid: { color: 'rgba(255,255,255,0.03)' },
+            },
+            y: {
+              min: 0,
+              max: 100,
+              ticks: { color: '#6b6f88', font: { size: 11 } },
+              grid: { color: 'rgba(255,255,255,0.03)' },
+            },
+          },
+        },
+      });
+    } catch (e) {
+      console.error('Chart error:', e);
+    }
+  })();
+</script>
+{% endblock %}

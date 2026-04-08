@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}Activities{% endblock %}
+
+{% block navbar %}
+<nav class="navbar">
+  <div class="navbar-brand" onclick="location.href='{{ url_for('dashboard') }}'">
+    <div class="logo">R</div>
+    <span>Runny</span>
+  </div>
+  <ul class="navbar-nav">
+    <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+    <li><a href="{{ url_for('activities') }}" class="active">Activities</a></li>
+  </ul>
+  <div class="navbar-user">
+    <a href="{{ url_for('logout') }}" class="btn btn-ghost text-sm">Logout</a>
+  </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="page-header">
+    <div class="flex items-center gap-md">
+      <h1>All Activities</h1>
+      <span class="text-muted text-sm">{{ activities | length }} runs</span>
+    </div>
+    {% if activities %}
+    <div class="flex items-center gap-sm">
+      <button class="btn btn-secondary text-sm" id="select-toggle" onclick="toggleSelectMode()">☑ Select</button>
+      <button class="btn btn-ghost text-sm" id="select-all-btn" style="display:none" onclick="toggleSelectAll()">Select All</button>
+      <button class="btn btn-ghost text-sm" id="delete-selected-btn" style="display:none; color:var(--red)" onclick="deleteSelected()">
+        🗑️ Delete (<span id="delete-count">0</span>)
+      </button>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if activities %}
+    {% for a in activities %}
+    <div class="card activity-card fade-in" data-id="{{ a.id }}" data-name="{{ a.name | e }}">
+      <input type="checkbox" class="activity-checkbox" value="{{ a.id }}"
+             style="display:none" onchange="updateDeleteCount()" onclick="event.stopPropagation()" />
+      <div class="score-badge" style="background: {{ get_score_color(a.runny_score) }}20; color: {{ get_score_color(a.runny_score) }}; --score-color: {{ get_score_color(a.runny_score) }}; --score-pct: {{ a.runny_score or 0 }}"
+           onclick="goToDetail({{ a.id }})">
+        {{ a.runny_score or '—' }}
+      </div>
+      <div class="activity-info" onclick="goToDetail({{ a.id }})" style="cursor:pointer">
+        <div class="activity-name">{{ a.name }}</div>
+        <div class="activity-meta">
+          <span>📅 {{ a.start_date[:10] }}</span>
+          <span>📏 {{ a.distance | distance_km }} km</span>
+          <span>⏱️ {{ a.moving_time | duration }}</span>
+          <span>🏃 {{ a.pace | pace }} /km</span>
+          {% if a.total_elevation_gain %}
+            <span>⛰️ {{ a.total_elevation_gain | int }} m</span>
+          {% endif %}
+          {% if a.average_heartrate %}
+            <span>❤️ {{ a.average_heartrate | int }} bpm</span>
+          {% endif %}
+          {% if a.training_type %}
+            <span class="text-accent">{{ a.training_type | capitalize }}</span>
+          {% endif %}
+        </div>
+      </div>
+      <button class="btn btn-delete single-delete" title="Delete activity"
+              onclick="event.stopPropagation(); deleteOne(this)">
+        🗑️
+      </button>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="card empty-state">
+      <div class="empty-state-icon">🏃</div>
+      <p>No activities imported yet.</p>
+      <p class="text-sm text-muted mt-md">Go to the <a href="{{ url_for('dashboard') }}">Dashboard</a> and click "Sync Activities".</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let selectMode = false;
+
+  function goToDetail(id) {
+    if (selectMode) return; // in select mode, don't navigate
+    location.href = '/activity/' + id;
+  }
+
+  // ─── Select Mode ───────────────────────────────────────
+  function toggleSelectMode() {
+    selectMode = !selectMode;
+    const checkboxes = document.querySelectorAll('.activity-checkbox');
+    const btn = document.getElementById('select-toggle');
+    const allBtn = document.getElementById('select-all-btn');
+    const delBtn = document.getElementById('delete-selected-btn');
+    const singleBtns = document.querySelectorAll('.single-delete');
+
+    if (selectMode) {
+      btn.textContent = '✕ Cancel';
+      btn.classList.add('text-accent');
+      allBtn.style.display = 'inline-flex';
+      delBtn.style.display = 'inline-flex';
+      checkboxes.forEach(cb => { cb.style.display = 'block'; cb.checked = false; });
+      singleBtns.forEach(b => b.style.display = 'none');
+    } else {
+      btn.textContent = '☑ Select';
+      btn.classList.remove('text-accent');
+      allBtn.style.display = 'none';
+      delBtn.style.display = 'none';
+      checkboxes.forEach(cb => { cb.style.display = 'none'; cb.checked = false; });
+      singleBtns.forEach(b => b.style.display = '');
+    }
+    updateDeleteCount();
+  }
+
+  function toggleSelectAll() {
+    const checkboxes = document.querySelectorAll('.activity-checkbox');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+    updateDeleteCount();
+  }
+
+  function updateDeleteCount() {
+    const count = document.querySelectorAll('.activity-checkbox:checked').length;
+    const el = document.getElementById('delete-count');
+    if (el) el.textContent = count;
+  }
+
+  // ─── Delete Single ─────────────────────────────────────
+  async function deleteOne(btn) {
+    const card = btn.closest('.activity-card');
+    const id = card.dataset.id;
+    const name = card.dataset.name;
+
+    if (!confirm('Delete "' + name + '"? This cannot be undone.')) return;
+
+    try {
+      const res = await fetch('/api/activity/' + id + '/delete', { method: 'DELETE' });
+      if (res.ok) {
+        card.style.transition = 'opacity 0.3s, transform 0.3s';
+        card.style.opacity = '0';
+        card.style.transform = 'translateX(40px)';
+        setTimeout(() => { card.remove(); }, 300);
+        showToast('Activity deleted');
+      } else {
+        const data = await res.json();
+        showToast(data.error || 'Delete failed', 'error');
+      }
+    } catch (e) {
+      showToast('Error: ' + e.message, 'error');
+    }
+  }
+
+  // ─── Delete Selected (bulk) ────────────────────────────
+  async function deleteSelected() {
+    const checked = document.querySelectorAll('.activity-checkbox:checked');
+    const ids = Array.from(checked).map(cb => parseInt(cb.value));
+
+    if (ids.length === 0) {
+      showToast('No activities selected', 'error');
+      return;
+    }
+
+    if (!confirm('Delete ' + ids.length + ' activities? This cannot be undone.')) return;
+
+    const btn = document.getElementById('delete-selected-btn');
+    btn.disabled = true;
+
+    let deleted = 0;
+    for (const id of ids) {
+      try {
+        const res = await fetch('/api/activity/' + id + '/delete', { method: 'POST' });
+        if (res.ok) deleted++;
+      } catch (e) { /* skip */ }
+    }
+
+    showToast('Deleted ' + deleted + ' activities');
+    setTimeout(() => location.reload(), 600);
+  }
+</script>
+{% endblock %}

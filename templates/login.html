@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="login-page">
+  <div class="login-hero">
+    <div class="login-logo">R</div>
+    <h1 class="login-title">Runny</h1>
+    <p class="login-subtitle">
+      Score every run. Track your progress.<br />
+      See how you're improving over time.
+    </p>
+
+    <div class="login-features">
+      <div class="login-feature fade-in">
+        <span class="login-feature-icon">🏃</span>
+        <span class="login-feature-label">Smart Scoring</span>
+      </div>
+      <div class="login-feature fade-in">
+        <span class="login-feature-icon">📈</span>
+        <span class="login-feature-label">Improvement Index</span>
+      </div>
+      <div class="login-feature fade-in">
+        <span class="login-feature-icon">❤️</span>
+        <span class="login-feature-label">HR Analysis</span>
+      </div>
+    </div>
+
+    {% if error %}
+      <div class="toast toast-error" style="margin: 0 auto 24px; max-width: 400px;">{{ error }}</div>
+    {% endif %}
+
+    <a href="{{ url_for('auth_strava') }}" class="btn btn-strava" id="connect-strava">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" style="margin-right:8px">
+        <path d="M6.731 0L2 9.3h3.328L6.731 0zm3.09 9.3L7.901 5.159 5.972 9.3h3.849zM10.24 16l-2.42-4.7h-1.91L10.24 16zm0 0l2.42-4.7h1.91L10.24 16z" fill-rule="evenodd"/>
+      </svg>
+      Connect with Strava
+    </a>
+
+    <p class="login-powered">Powered by Strava API</p>
+  </div>
+</div>
+{% endblock %}

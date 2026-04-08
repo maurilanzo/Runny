@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}{{ activity.name }}{% endblock %}
+
+{% block navbar %}
+<nav class="navbar">
+  <div class="navbar-brand" onclick="location.href='{{ url_for('dashboard') }}'">
+    <div class="logo">R</div>
+    <span>Runny</span>
+  </div>
+  <ul class="navbar-nav">
+    <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+    <li><a href="{{ url_for('activities') }}">Activities</a></li>
+  </ul>
+  <div class="navbar-user">
+    <a href="{{ url_for('logout') }}" class="btn btn-ghost text-sm">Logout</a>
+  </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <!-- Back link -->
+  <a href="{{ url_for('activities') }}" class="btn btn-ghost text-sm" style="margin-bottom: 16px; display: inline-flex;">
+    ← All Activities
+  </a>
+
+  <!-- Header -->
+  <div class="detail-header">
+    <div class="score-badge score-badge-lg" style="background: {{ get_score_color(activity.runny_score) }}20; color: {{ get_score_color(activity.runny_score) }}">
+      {{ activity.runny_score or '—' }}
+    </div>
+    <div>
+      <h1>{{ activity.name }}</h1>
+      <p class="text-muted">
+        {{ activity.start_date[:10] }} · {{ get_score_label(activity.runny_score) }}
+        {% if activity.training_type %}
+          · <span class="text-accent">{{ activity.training_type | capitalize }}</span>
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <!-- Metrics Grid -->
+  <div class="section">
+    <h2 class="section-title">Metrics</h2>
+    <div class="detail-metrics">
+      <div class="card metric-card fade-in">
+        <div class="metric-value">{{ activity.distance | distance_km }}</div>
+        <div class="metric-label">Distance (km)</div>
+      </div>
+      <div class="card metric-card fade-in">
+        <div class="metric-value">{{ activity.moving_time | duration }}</div>
+        <div class="metric-label">Duration</div>
+      </div>
+      <div class="card metric-card fade-in">
+        <div class="metric-value">{{ activity.pace | pace }}</div>
+        <div class="metric-label">Pace (/km)</div>
+      </div>
+      <div class="card metric-card fade-in">
+        <div class="metric-value">{{ activity.total_elevation_gain | int }} m</div>
+        <div class="metric-label">Elevation</div>
+      </div>
+      {% if activity.average_heartrate %}
+      <div class="card metric-card fade-in">
+        <div class="metric-value">{{ activity.average_heartrate | int }}</div>
+        <div class="metric-label">Avg HR (bpm)</div>
+      </div>
+      {% endif %}
+      {% if activity.max_heartrate %}
+      <div class="card metric-card fade-in">
+        <div class="metric-value">{{ activity.max_heartrate | int }}</div>
+        <div class="metric-label">Max HR (bpm)</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Score Breakdown -->
+  {% if activity.breakdown %}
+  <div class="section">
+    <h2 class="section-title">Score Breakdown</h2>
+    <div class="card card-flat">
+      <div class="breakdown-grid">
+        {% if activity.breakdown.distance is defined %}
+        <div class="breakdown-row fade-in">
+          <span class="breakdown-label">Distance</span>
+          <div class="breakdown-bar-bg">
+            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.distance }}%"></div>
+          </div>
+          <span class="breakdown-value">{{ activity.breakdown.distance }}</span>
+        </div>
+        {% endif %}
+        {% if activity.breakdown.duration is defined %}
+        <div class="breakdown-row fade-in">
+          <span class="breakdown-label">Duration</span>
+          <div class="breakdown-bar-bg">
+            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.duration }}%"></div>
+          </div>
+          <span class="breakdown-value">{{ activity.breakdown.duration }}</span>
+        </div>
+        {% endif %}
+        {% if activity.breakdown.pace is defined %}
+        <div class="breakdown-row fade-in">
+          <span class="breakdown-label">Pace</span>
+          <div class="breakdown-bar-bg">
+            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.pace }}%"></div>
+          </div>
+          <span class="breakdown-value">{{ activity.breakdown.pace }}</span>
+        </div>
+        {% endif %}
+        {% if activity.breakdown.elevation is defined %}
+        <div class="breakdown-row fade-in">
+          <span class="breakdown-label">Elevation</span>
+          <div class="breakdown-bar-bg">
+            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.elevation }}%"></div>
+          </div>
+          <span class="breakdown-value">{{ activity.breakdown.elevation }}</span>
+        </div>
+        {% endif %}
+        {% if activity.breakdown.avg_hr is defined %}
+        <div class="breakdown-row fade-in">
+          <span class="breakdown-label">Avg HR</span>
+          <div class="breakdown-bar-bg">
+            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.avg_hr }}%"></div>
+          </div>
+          <span class="breakdown-value">{{ activity.breakdown.avg_hr }}</span>
+        </div>
+        {% endif %}
+        {% if activity.breakdown.max_hr is defined %}
+        <div class="breakdown-row fade-in">
+          <span class="breakdown-label">Max HR</span>
+          <div class="breakdown-bar-bg">
+            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.max_hr }}%"></div>
+          </div>
+          <span class="breakdown-value">{{ activity.breakdown.max_hr }}</span>
+        </div>
+        {% endif %}
+        {% if activity.breakdown.rpe is defined %}
+        <div class="breakdown-row fade-in">
+          <span class="breakdown-label">RPE</span>
+          <div class="breakdown-bar-bg">
+            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.rpe }}%"></div>
+          </div>
+          <span class="breakdown-value">{{ activity.breakdown.rpe }}</span>
+        </div>
+        {% endif %}
+      </div>
+      {% if activity.breakdown.type_multiplier and activity.breakdown.type_multiplier != 1.0 %}
+        <p class="text-sm text-muted mt-md">
+          Training type multiplier: <strong>×{{ activity.breakdown.type_multiplier }}</strong>
+        </p>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Edit RPE & Training Type -->
+  <div class="section">
+    <h2 class="section-title">Rate this Run</h2>
+    <div class="card card-flat">
+      <div class="flex gap-lg" style="flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label class="form-label" for="rpe-slider">RPE (Perceived Effort)</label>
+          <div class="flex items-center gap-md">
+            <input type="range" id="rpe-slider" class="range-slider" min="1" max="10"
+                   value="{{ activity.rpe or 5 }}"
+                   oninput="document.getElementById('rpe-val').textContent = this.value" />
+            <span id="rpe-val" style="font-weight:700; font-size:1.25rem; min-width:24px; text-align:center">{{ activity.rpe or 5 }}</span>
+          </div>
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label class="form-label" for="type-select">Training Type</label>
+          <select id="type-select" class="form-select">
+            {% for t in ['easy', 'moderate', 'tempo', 'long', 'intervals', 'repetitions', 'race'] %}
+              <option value="{{ t }}" {% if activity.training_type == t %}selected{% endif %}>
+                {{ t | capitalize }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary mt-lg" id="save-btn" onclick="saveChanges()">
+        Save & Re-Score
+      </button>
+      <span id="save-status" class="text-sm text-muted" style="margin-left: 12px;"></span>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function saveChanges() {
+    const rpe = parseInt(document.getElementById('rpe-slider').value);
+    const training_type = document.getElementById('type-select').value;
+    const btn = document.getElementById('save-btn');
+    const status = document.getElementById('save-status');
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      const res = await fetch('/api/activity/{{ activity.id }}/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rpe, training_type }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        showToast(`Score updated: ${data.score}`);
+        setTimeout(() => location.reload(), 800);
+      } else {
+        showToast(data.error || 'Update failed', 'error');
+      }
+    } catch (e) {
+      showToast('Error: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save & Re-Score';
+    }
+  }
+</script>
+{% endblock %}
