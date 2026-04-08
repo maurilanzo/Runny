@@ -57,6 +57,12 @@ def init_db():
             value TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS streams (
+            activity_id  INTEGER PRIMARY KEY,
+            stream_data  TEXT NOT NULL,
+            fetched_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE INDEX IF NOT EXISTS idx_activities_date
             ON activities(start_date);
         CREATE INDEX IF NOT EXISTS idx_activities_score

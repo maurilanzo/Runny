@@ -3,6 +3,9 @@ Strava API client – OAuth2 and activity fetching.
 """
 import os
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 STRAVA_CLIENT_ID = os.getenv("STRAVA_CLIENT_ID", "")
 STRAVA_CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET", "")
@@ -111,4 +114,24 @@ def fetch_activity_detail(activity_id: int, access_token: str) -> dict:
         f"/activities/{activity_id}",
         access_token,
         params={"include_all_efforts": "false"},
+    )
+
+
+def fetch_activity_streams(activity_id: int, access_token: str) -> list:
+    """
+    Fetch time-series stream data for a single activity.
+
+    Returns a list of stream dicts, each with:
+        {"type": "velocity_smooth", "data": [...], "series_type": "distance", "resolution": "high"}
+
+    Requested stream keys: time, distance, altitude, velocity_smooth,
+    heartrate, cadence, grade_smooth.
+    Not all keys may be present in the response (e.g. no heartrate
+    if the athlete didn't wear an HR monitor).
+    """
+    keys = "time,distance,altitude,velocity_smooth,heartrate,cadence,grade_smooth"
+    return _strava_get(
+        f"/activities/{activity_id}/streams",
+        access_token,
+        params={"keys": keys, "key_by_type": "true"},
     )

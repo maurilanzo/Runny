@@ -81,78 +81,145 @@
     <h2 class="section-title">Score Breakdown</h2>
     <div class="card card-flat">
       <div class="breakdown-grid">
-        {% if activity.breakdown.distance is defined %}
-        <div class="breakdown-row fade-in">
-          <span class="breakdown-label">Distance</span>
-          <div class="breakdown-bar-bg">
-            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.distance }}%"></div>
-          </div>
-          <span class="breakdown-value">{{ activity.breakdown.distance }}</span>
-        </div>
-        {% endif %}
-        {% if activity.breakdown.duration is defined %}
-        <div class="breakdown-row fade-in">
-          <span class="breakdown-label">Duration</span>
-          <div class="breakdown-bar-bg">
-            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.duration }}%"></div>
-          </div>
-          <span class="breakdown-value">{{ activity.breakdown.duration }}</span>
-        </div>
-        {% endif %}
         {% if activity.breakdown.pace is defined %}
         <div class="breakdown-row fade-in">
-          <span class="breakdown-label">Pace</span>
+          <span class="breakdown-label">Pace (GAP)
+            {% if activity.breakdown.gap_sec_per_km %}
+              <span class="text-muted text-xs">{{ (activity.breakdown.gap_sec_per_km // 60) | int }}:{{ '%02d' | format((activity.breakdown.gap_sec_per_km % 60) | int) }}/km</span>
+            {% endif %}
+          </span>
           <div class="breakdown-bar-bg">
             <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.pace }}%"></div>
           </div>
           <span class="breakdown-value">{{ activity.breakdown.pace }}</span>
         </div>
         {% endif %}
-        {% if activity.breakdown.elevation is defined %}
+        {% if activity.breakdown.cardiac_efficiency is defined %}
         <div class="breakdown-row fade-in">
-          <span class="breakdown-label">Elevation</span>
+          <span class="breakdown-label">Cardiac Efficiency
+            {% if activity.breakdown.cardiac_efficiency_raw %}
+              <span class="text-muted text-xs">{{ activity.breakdown.cardiac_efficiency_raw }}</span>
+            {% endif %}
+          </span>
           <div class="breakdown-bar-bg">
-            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.elevation }}%"></div>
+            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.cardiac_efficiency }}%"></div>
           </div>
-          <span class="breakdown-value">{{ activity.breakdown.elevation }}</span>
+          <span class="breakdown-value">{{ activity.breakdown.cardiac_efficiency }}</span>
         </div>
         {% endif %}
-        {% if activity.breakdown.avg_hr is defined %}
+        {% if activity.breakdown.execution_quality is defined %}
         <div class="breakdown-row fade-in">
-          <span class="breakdown-label">Avg HR</span>
+          <span class="breakdown-label">Execution Quality
+            {% if activity.breakdown.training_type %}
+              <span class="text-muted text-xs">{{ activity.breakdown.training_type | capitalize }}</span>
+            {% endif %}
+          </span>
           <div class="breakdown-bar-bg">
-            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.avg_hr }}%"></div>
+            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.execution_quality }}%"></div>
           </div>
-          <span class="breakdown-value">{{ activity.breakdown.avg_hr }}</span>
+          <span class="breakdown-value">{{ activity.breakdown.execution_quality }}</span>
         </div>
         {% endif %}
-        {% if activity.breakdown.max_hr is defined %}
+        {% if activity.breakdown.elevation_difficulty is defined %}
         <div class="breakdown-row fade-in">
-          <span class="breakdown-label">Max HR</span>
+          <span class="breakdown-label">Elevation Difficulty
+            {% if activity.breakdown.elev_per_km %}
+              <span class="text-muted text-xs">{{ activity.breakdown.elev_per_km }} m/km</span>
+            {% endif %}
+          </span>
           <div class="breakdown-bar-bg">
-            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.max_hr }}%"></div>
+            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.elevation_difficulty }}%"></div>
           </div>
-          <span class="breakdown-value">{{ activity.breakdown.max_hr }}</span>
+          <span class="breakdown-value">{{ activity.breakdown.elevation_difficulty }}</span>
         </div>
         {% endif %}
-        {% if activity.breakdown.rpe is defined %}
+        {% if activity.breakdown.consistency is defined %}
         <div class="breakdown-row fade-in">
-          <span class="breakdown-label">RPE</span>
+          <span class="breakdown-label">Consistency
+            <span class="text-muted text-xs">
+              {% if activity.breakdown.consistency_source == 'stream' %}pace CV{% elif activity.breakdown.consistency_source == 'ratio' %}move ratio{% else %}est.{% endif %}
+            </span>
+          </span>
           <div class="breakdown-bar-bg">
-            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.rpe }}%"></div>
+            <div class="breakdown-bar-fill" style="width: {{ activity.breakdown.consistency }}%"></div>
           </div>
-          <span class="breakdown-value">{{ activity.breakdown.rpe }}</span>
+          <span class="breakdown-value">{{ activity.breakdown.consistency }}</span>
         </div>
         {% endif %}
       </div>
-      {% if activity.breakdown.type_multiplier and activity.breakdown.type_multiplier != 1.0 %}
+      {% if activity.breakdown.active_components %}
         <p class="text-sm text-muted mt-md">
-          Training type multiplier: <strong>×{{ activity.breakdown.type_multiplier }}</strong>
+          Active weights:
+          {% for comp, pct in activity.breakdown.active_components.items() %}
+            <span style="margin-right: 8px;">{{ comp | replace('_', ' ') | capitalize }} {{ pct }}%</span>
+          {% endfor %}
         </p>
       {% endif %}
     </div>
   </div>
   {% endif %}
+
+  <!-- Run Analysis Chart -->
+  <div class="section">
+    <h2 class="section-title">Run Analysis</h2>
+    <div class="card card-flat">
+      <!-- Controls -->
+      <div id="analysis-controls" class="analysis-controls" style="display: none;">
+        <div class="analysis-controls-row">
+          <div class="analysis-toggles">
+            <label class="analysis-toggle"><input type="checkbox" id="toggle-pace" checked> <span class="toggle-dot" style="background: #ff6b35"></span> Pace</label>
+            <label class="analysis-toggle"><input type="checkbox" id="toggle-hr" checked> <span class="toggle-dot" style="background: #e91e63"></span> HR</label>
+            <label class="analysis-toggle"><input type="checkbox" id="toggle-elevation" checked> <span class="toggle-dot" style="background: #4fc3f7"></span> Elevation</label>
+            <label class="analysis-toggle"><input type="checkbox" id="toggle-cadence"> <span class="toggle-dot" style="background: #ab47bc"></span> Cadence</label>
+            <label class="analysis-toggle"><input type="checkbox" id="toggle-grade"> <span class="toggle-dot" style="background: #78909c"></span> Grade</label>
+          </div>
+          <div class="analysis-options">
+            <div class="analysis-radio-group">
+              <label><input type="radio" name="x-axis" value="distance" checked> Distance</label>
+              <label><input type="radio" name="x-axis" value="time"> Time</label>
+            </div>
+            <div class="analysis-slider">
+              <label for="smoothing-slider">Smoothing</label>
+              <input type="range" id="smoothing-slider" min="1" max="60" value="10" class="range-slider">
+              <span id="smoothing-val" class="text-sm">10 pts</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Chart -->
+      <div class="chart-container" style="height: 380px;">
+        <div id="analysis-loading" class="loading">
+          <div class="spinner"></div>
+          <span class="loading-text">Loading run data…</span>
+        </div>
+        <canvas id="analysis-chart" style="display: none;"></canvas>
+      </div>
+      <!-- Derived metrics -->
+      <div id="analysis-metrics" class="analysis-derived" style="display: none;">
+        <div class="analysis-metric-item">
+          <span class="text-muted text-sm">Pace CV</span>
+          <span id="metric-pace-cv" class="text-sm" style="font-weight:600">—</span>
+        </div>
+        <div class="analysis-metric-item">
+          <span class="text-muted text-sm">Cardiac Drift</span>
+          <span id="metric-cardiac-drift" class="text-sm" style="font-weight:600">—</span>
+        </div>
+        <div class="analysis-metric-item">
+          <span class="text-muted text-sm">Avg Cadence</span>
+          <span id="metric-avg-cadence" class="text-sm" style="font-weight:600">—</span>
+        </div>
+        <div class="analysis-metric-item">
+          <span class="text-muted text-sm">Elev ↑↓</span>
+          <span id="metric-elev" class="text-sm" style="font-weight:600">—</span>
+        </div>
+      </div>
+      <div id="analysis-error" style="display: none;">
+        <p class="text-muted text-sm" style="padding: 16px; text-align:center;">
+          Stream data not available for this activity.
+        </p>
+      </div>
+    </div>
+  </div>
 
   <!-- Edit RPE & Training Type -->
   <div class="section">
@@ -189,12 +256,13 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script>
+  // ─── Save RPE / Training Type ───────────────────────────
   async function saveChanges() {
     const rpe = parseInt(document.getElementById('rpe-slider').value);
     const training_type = document.getElementById('type-select').value;
     const btn = document.getElementById('save-btn');
-    const status = document.getElementById('save-status');
 
     btn.disabled = true;
     btn.textContent = 'Saving…';
@@ -220,5 +288,371 @@
       btn.textContent = 'Save & Re-Score';
     }
   }
+
+  // ─── Run Analysis Chart ─────────────────────────────────
+  let rawStreams = {};
+  let analysisChart = null;
+
+  function getStreamData(streams, key) {
+    // Handle both list format and dict format from Strava
+    if (Array.isArray(streams)) {
+      const s = streams.find(st => st.type === key);
+      return s ? s.data : null;
+    }
+    if (streams[key]) {
+      return streams[key].data || streams[key];
+    }
+    return null;
+  }
+
+  function movingAverage(data, windowSize) {
+    if (!data || windowSize <= 1) return data;
+    const result = [];
+    for (let i = 0; i < data.length; i++) {
+      const start = Math.max(0, i - Math.floor(windowSize / 2));
+      const end = Math.min(data.length, i + Math.ceil(windowSize / 2));
+      let sum = 0, count = 0;
+      for (let j = start; j < end; j++) {
+        if (data[j] !== null && data[j] !== undefined) {
+          sum += data[j];
+          count++;
+        }
+      }
+      result.push(count > 0 ? sum / count : null);
+    }
+    return result;
+  }
+
+  function velocityToPace(velocity) {
+    // m/s → min/km (as a float for charting, e.g. 5.5 = 5:30/km)
+    if (!velocity || velocity <= 0) return null;
+    const secPerKm = 1000 / velocity;
+    return secPerKm / 60;  // minutes per km
+  }
+
+  function formatPace(minPerKm) {
+    if (!minPerKm || minPerKm <= 0) return '—';
+    const mins = Math.floor(minPerKm);
+    const secs = Math.round((minPerKm - mins) * 60);
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  }
+
+  function computeDerivedMetrics() {
+    const velocity = getStreamData(rawStreams, 'velocity_smooth');
+    const hr = getStreamData(rawStreams, 'heartrate');
+    const cadence = getStreamData(rawStreams, 'cadence');
+    const altitude = getStreamData(rawStreams, 'altitude');
+
+    // Pace CV
+    if (velocity) {
+      const speeds = velocity.filter(v => v > 0.5);
+      if (speeds.length > 0) {
+        const mean = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+        const variance = speeds.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / speeds.length;
+        const cv = Math.sqrt(variance) / mean;
+        document.getElementById('metric-pace-cv').textContent = (cv * 100).toFixed(1) + '%';
+      }
+    }
+
+    // Cardiac drift
+    if (hr && hr.length > 10) {
+      const validHr = hr.filter(h => h > 0);
+      const q1End = Math.floor(validHr.length * 0.25);
+      const q4Start = Math.floor(validHr.length * 0.75);
+      const firstQ = validHr.slice(0, q1End);
+      const lastQ = validHr.slice(q4Start);
+      if (firstQ.length && lastQ.length) {
+        const avgFirst = firstQ.reduce((a, b) => a + b, 0) / firstQ.length;
+        const avgLast = lastQ.reduce((a, b) => a + b, 0) / lastQ.length;
+        const drift = ((avgLast - avgFirst) / avgFirst * 100).toFixed(1);
+        document.getElementById('metric-cardiac-drift').textContent =
+          (drift > 0 ? '+' : '') + drift + '%';
+      }
+    }
+
+    // Avg cadence
+    if (cadence) {
+      const valid = cadence.filter(c => c > 0);
+      if (valid.length) {
+        const avg = valid.reduce((a, b) => a + b, 0) / valid.length;
+        document.getElementById('metric-avg-cadence').textContent = Math.round(avg * 2) + ' spm';
+      }
+    }
+
+    // Elevation gain/loss
+    if (altitude && altitude.length > 1) {
+      let gain = 0, loss = 0;
+      for (let i = 1; i < altitude.length; i++) {
+        const diff = altitude[i] - altitude[i - 1];
+        if (diff > 0) gain += diff;
+        else loss -= diff;
+      }
+      document.getElementById('metric-elev').textContent =
+        `+${Math.round(gain)}m / -${Math.round(loss)}m`;
+    }
+  }
+
+  function buildChart() {
+    const smoothing = parseInt(document.getElementById('smoothing-slider').value);
+    const xMode = document.querySelector('input[name="x-axis"]:checked').value;
+
+    const distance = getStreamData(rawStreams, 'distance');
+    const time = getStreamData(rawStreams, 'time');
+    const velocity = getStreamData(rawStreams, 'velocity_smooth');
+    const hr = getStreamData(rawStreams, 'heartrate');
+    const altitude = getStreamData(rawStreams, 'altitude');
+    const cadence = getStreamData(rawStreams, 'cadence');
+    const grade = getStreamData(rawStreams, 'grade_smooth');
+
+    if (!distance && !time) return;
+
+    // X-axis labels
+    let labels;
+    if (xMode === 'distance' && distance) {
+      labels = distance.map(d => (d / 1000).toFixed(2));
+    } else if (time) {
+      labels = time.map(t => {
+        const m = Math.floor(t / 60);
+        const s = t % 60;
+        return `${m}:${String(s).padStart(2, '0')}`;
+      });
+    } else {
+      labels = distance.map((_, i) => i);
+    }
+
+    // Downsample for performance (max ~800 points)
+    const maxPts = 800;
+    let step = 1;
+    if (labels.length > maxPts) {
+      step = Math.ceil(labels.length / maxPts);
+    }
+    const sampleIdx = [];
+    for (let i = 0; i < labels.length; i += step) sampleIdx.push(i);
+
+    const sample = (arr) => arr ? sampleIdx.map(i => arr[i] !== undefined ? arr[i] : null) : null;
+    const sampledLabels = sample(labels);
+
+    // Smoothed + sampled data
+    const paceData = velocity ? sample(movingAverage(velocity.map(velocityToPace), smoothing)) : null;
+    const hrData = hr ? sample(movingAverage(hr, smoothing)) : null;
+    const altData = altitude ? sample(movingAverage(altitude, Math.max(3, Math.floor(smoothing / 3)))) : null;
+    const cadData = cadence ? sample(movingAverage(cadence.map(c => c * 2), smoothing)) : null; // Strava sends half-cadence
+    const gradeData = grade ? sample(movingAverage(grade, smoothing)) : null;
+
+    // Toggles
+    const showPace = document.getElementById('toggle-pace').checked && paceData;
+    const showHr = document.getElementById('toggle-hr').checked && hrData;
+    const showElev = document.getElementById('toggle-elevation').checked && altData;
+    const showCadence = document.getElementById('toggle-cadence').checked && cadData;
+    const showGrade = document.getElementById('toggle-grade').checked && gradeData;
+
+    const datasets = [];
+    const scales = {
+      x: {
+        ticks: { color: '#6b6f88', maxTicksLimit: 15, font: { size: 10 } },
+        grid: { color: 'rgba(255,255,255,0.03)' },
+        title: { display: true, text: xMode === 'distance' ? 'km' : 'time', color: '#6b6f88' },
+      },
+    };
+
+    if (showElev) {
+      datasets.push({
+        label: 'Elevation (m)',
+        data: altData,
+        borderColor: 'rgba(79, 195, 247, 0.4)',
+        backgroundColor: 'rgba(79, 195, 247, 0.08)',
+        fill: true,
+        borderWidth: 1,
+        pointRadius: 0,
+        tension: 0.3,
+        yAxisID: 'y-elevation',
+        order: 10,
+      });
+      scales['y-elevation'] = {
+        position: 'right',
+        display: false,
+        grid: { display: false },
+      };
+    }
+
+    if (showGrade) {
+      datasets.push({
+        label: 'Grade (%)',
+        data: gradeData,
+        borderColor: 'rgba(120, 144, 156, 0.5)',
+        backgroundColor: 'rgba(120, 144, 156, 0.1)',
+        fill: true,
+        borderWidth: 1,
+        pointRadius: 0,
+        tension: 0.2,
+        yAxisID: 'y-grade',
+        order: 9,
+      });
+      scales['y-grade'] = {
+        position: 'right',
+        display: false,
+        grid: { display: false },
+      };
+    }
+
+    if (showPace) {
+      datasets.push({
+        label: 'Pace (min/km)',
+        data: paceData,
+        borderColor: '#ff6b35',
+        backgroundColor: 'rgba(255, 107, 53, 0.05)',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.3,
+        yAxisID: 'y-pace',
+        order: 2,
+      });
+      // Compute pace range for axis
+      const validPaces = paceData.filter(p => p && p > 0 && p < 15);
+      const paceMin = validPaces.length ? Math.floor(Math.min(...validPaces) - 0.5) : 3;
+      const paceMax = validPaces.length ? Math.ceil(Math.max(...validPaces) + 0.5) : 10;
+      scales['y-pace'] = {
+        position: 'left',
+        reverse: true,  // Lower pace = faster = higher on chart
+        min: Math.max(2, paceMin),
+        max: Math.min(15, paceMax),
+        ticks: {
+          color: '#ff6b35',
+          font: { size: 10 },
+          callback: (v) => formatPace(v),
+        },
+        grid: { color: 'rgba(255, 107, 53, 0.06)' },
+        title: { display: true, text: 'Pace', color: '#ff6b35', font: { size: 11 } },
+      };
+    }
+
+    if (showHr) {
+      datasets.push({
+        label: 'Heart Rate (bpm)',
+        data: hrData,
+        borderColor: '#e91e63',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0.3,
+        yAxisID: 'y-hr',
+        order: 3,
+      });
+      const validHrs = hrData.filter(h => h && h > 0);
+      const hrMin = validHrs.length ? Math.min(...validHrs) - 10 : 80;
+      const hrMax = validHrs.length ? Math.max(...validHrs) + 10 : 200;
+      scales['y-hr'] = {
+        position: 'right',
+        min: Math.max(60, hrMin),
+        max: Math.min(220, hrMax),
+        ticks: { color: '#e91e63', font: { size: 10 } },
+        grid: { display: false },
+        title: { display: true, text: 'HR', color: '#e91e63', font: { size: 11 } },
+      };
+    }
+
+    if (showCadence) {
+      datasets.push({
+        label: 'Cadence (spm)',
+        data: cadData,
+        borderColor: '#ab47bc',
+        borderWidth: 1.5,
+        borderDash: [4, 3],
+        pointRadius: 0,
+        tension: 0.3,
+        yAxisID: 'y-cadence',
+        order: 4,
+      });
+      scales['y-cadence'] = {
+        position: 'right',
+        display: false,
+        grid: { display: false },
+      };
+    }
+
+    // Destroy old chart
+    if (analysisChart) {
+      analysisChart.destroy();
+      analysisChart = null;
+    }
+
+    const ctx = document.getElementById('analysis-chart').getContext('2d');
+    analysisChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: sampledLabels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        plugins: {
+          legend: {
+            display: true,
+            labels: { color: '#a0a3b8', font: { family: 'Inter', size: 11 }, usePointStyle: true, pointStyle: 'line' },
+          },
+          tooltip: {
+            backgroundColor: '#161c41',
+            titleColor: '#f0f0f5',
+            bodyColor: '#a0a3b8',
+            borderColor: 'rgba(255,255,255,0.06)',
+            borderWidth: 1,
+            callbacks: {
+              label: function(ctx) {
+                const key = ctx.dataset.label;
+                const val = ctx.parsed.y;
+                if (key.includes('Pace')) return `Pace: ${formatPace(val)}`;
+                if (key.includes('Heart')) return `HR: ${Math.round(val)} bpm`;
+                if (key.includes('Elevation')) return `Elev: ${Math.round(val)} m`;
+                if (key.includes('Cadence')) return `Cadence: ${Math.round(val)} spm`;
+                if (key.includes('Grade')) return `Grade: ${val.toFixed(1)}%`;
+                return `${key}: ${val}`;
+              },
+            },
+          },
+        },
+        scales,
+      },
+    });
+  }
+
+  // ─── Init ───────────────────────────────────────────────
+  (async function() {
+    try {
+      const res = await fetch('/api/activity/{{ activity.id }}/streams');
+      const data = await res.json();
+
+      if (res.ok && !data.error) {
+        rawStreams = data;
+        document.getElementById('analysis-loading').style.display = 'none';
+        document.getElementById('analysis-chart').style.display = 'block';
+        document.getElementById('analysis-controls').style.display = 'block';
+        document.getElementById('analysis-metrics').style.display = 'flex';
+
+        computeDerivedMetrics();
+        buildChart();
+
+        // Event listeners
+        document.getElementById('smoothing-slider').addEventListener('input', (e) => {
+          document.getElementById('smoothing-val').textContent = e.target.value + ' pts';
+          buildChart();
+        });
+        document.querySelectorAll('input[name="x-axis"]').forEach(r => {
+          r.addEventListener('change', buildChart);
+        });
+        ['toggle-pace', 'toggle-hr', 'toggle-elevation', 'toggle-cadence', 'toggle-grade'].forEach(id => {
+          document.getElementById(id).addEventListener('change', buildChart);
+        });
+      } else {
+        document.getElementById('analysis-loading').style.display = 'none';
+        document.getElementById('analysis-error').style.display = 'block';
+      }
+    } catch (e) {
+      document.getElementById('analysis-loading').style.display = 'none';
+      document.getElementById('analysis-error').style.display = 'block';
+      console.error('Stream fetch error:', e);
+    }
+  })();
 </script>
 {% endblock %}

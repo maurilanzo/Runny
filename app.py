@@ -3,6 +3,7 @@ Runny – Strava-Powered Running Score & Improvement Tracker
 Main Flask application
 """
 import os
+import json
 from flask import Flask, render_template, redirect, request, session, url_for, jsonify
 from dotenv import load_dotenv
 
@@ -15,9 +16,10 @@ from strava_api import (
     refresh_access_token,
     fetch_all_activities,
     fetch_activity_detail,
+    fetch_activity_streams,
 )
 from scoring import score_activity, score_all_activities, get_score_color, get_score_label
-from improvement import compute_improvement, get_trend_color, get_trend_icon
+from improvement import compute_improvement, get_trend_color, get_trend_icon, DEFAULT_TREND_WINDOW_DAYS
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-key-change-me")
@@ -171,8 +173,12 @@ def dashboard():
     ).fetchall()
     activities = [dict(a) for a in activities]
 
-    # Compute improvement
-    improvement = compute_improvement(activities)
+    # Compute improvement with configurable window
+    window_row = db.execute(
+        "SELECT value FROM settings WHERE key = 'trend_window_days'"
+    ).fetchone()
+    window_days = int(window_row["value"]) if window_row else DEFAULT_TREND_WINDOW_DAYS
+    improvement = compute_improvement(activities, window_days=window_days)
 
     # Stats
     total_runs = len(activities)
@@ -195,6 +201,7 @@ def dashboard():
         avg_score=avg_score,
         best_score=best_score,
         improvement=improvement,
+        window_days=window_days,
         recent=recent,
         athlete_name=athlete_name["value"] if athlete_name else "",
         athlete_avatar=athlete_avatar["value"] if athlete_avatar else "",
@@ -238,7 +245,7 @@ def activity_detail(activity_id):
     all_acts = [dict(a) for a in db.execute(
         "SELECT * FROM activities ORDER BY start_date DESC"
     ).fetchall()]
-    _, breakdown = score_activity(activity, all_acts)
+    _, breakdown = score_activity(activity, all_acts, db=db)
     activity["breakdown"] = breakdown
 
     return render_template("detail.html", activity=activity)
@@ -341,7 +348,7 @@ def sync_activities():
         all_acts = [dict(r) for r in db.execute(
             "SELECT * FROM activities ORDER BY start_date DESC"
         ).fetchall()]
-        scored = score_all_activities(all_acts)
+        scored = score_all_activities(all_acts, db=db)
 
         for a in scored:
             db.execute(
@@ -388,7 +395,7 @@ def update_activity(activity_id):
         "SELECT * FROM activities ORDER BY start_date DESC"
     ).fetchall()]
 
-    new_score, breakdown = score_activity(activity, all_acts)
+    new_score, breakdown = score_activity(activity, all_acts, db=db)
     db.execute(
         "UPDATE activities SET runny_score = ? WHERE id = ?",
         (new_score, activity_id),
@@ -396,6 +403,60 @@ def update_activity(activity_id):
     db.commit()
 
     return jsonify({"score": new_score, "breakdown": breakdown})
+
+
+# ─── Streams Endpoint ─────────────────────────────────────
+
+@app.route("/api/activity/<int:activity_id>/streams")
+@require_auth
+def activity_streams(activity_id):
+    """Return stream data for the run analysis chart (cached)."""
+    if not ensure_token():
+        return jsonify({"error": "Authentication expired"}), 401
+
+    db = get_db()
+
+    # Check cache first
+    cached = db.execute(
+        "SELECT stream_data FROM streams WHERE activity_id = ?",
+        (activity_id,),
+    ).fetchone()
+
+    if cached:
+        return jsonify(json.loads(cached["stream_data"]))
+
+    # Fetch from Strava
+    try:
+        streams = fetch_activity_streams(activity_id, session["access_token"])
+
+        # Cache it
+        db.execute(
+            "INSERT OR REPLACE INTO streams (activity_id, stream_data) VALUES (?, ?)",
+            (activity_id, json.dumps(streams)),
+        )
+        db.commit()
+
+        return jsonify(streams)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ─── Settings Endpoint ────────────────────────────────────
+
+@app.route("/api/settings/trend-window", methods=["POST"])
+@require_auth
+def update_trend_window():
+    """Update the trend comparison window size."""
+    data = request.get_json()
+    days = int(data.get("days", DEFAULT_TREND_WINDOW_DAYS))
+    days = max(7, min(90, days))  # Clamp to 7–90 range
+    db = get_db()
+    db.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+        ("trend_window_days", str(days)),
+    )
+    db.commit()
+    return jsonify({"trend_window_days": days})
 
 
 # ─── Chart Data Endpoint ─────────────────────────────────
@@ -408,7 +469,13 @@ def chart_data():
         "SELECT * FROM activities ORDER BY start_date ASC"
     ).fetchall()]
 
-    improvement = compute_improvement(activities)
+    # Read configurable window
+    window_row = db.execute(
+        "SELECT value FROM settings WHERE key = 'trend_window_days'"
+    ).fetchone()
+    window_days = int(window_row["value"]) if window_row else DEFAULT_TREND_WINDOW_DAYS
+
+    improvement = compute_improvement(activities, window_days=window_days)
     return jsonify(improvement)
 
 

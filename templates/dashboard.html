@@ -47,12 +47,19 @@
         <span class="stat-value">{{ best_score }}</span>
       </div>
       <div class="card stat-card fade-in">
-        <span class="stat-label">Improvement</span>
+        <span class="stat-label">
+          Improvement
+          <select id="trend-window-select" class="trend-window-select" onchange="updateTrendWindow(this.value)">
+            <option value="14" {% if window_days == 14 %}selected{% endif %}>14d</option>
+            <option value="28" {% if window_days == 28 %}selected{% endif %}>28d</option>
+            <option value="42" {% if window_days == 42 %}selected{% endif %}>42d</option>
+          </select>
+        </span>
         <span class="stat-value" style="color: {{ get_trend_color(improvement.trend) }}">
           {{ get_trend_icon(improvement.trend) }}
-          {% if improvement.improvement_pct > 0 %}+{% endif %}{{ improvement.improvement_pct }}%
+          {{ improvement.improvement_index }}
         </span>
-        <span class="stat-sub">EWMA {{ improvement.current_ewma }}</span>
+        <span class="stat-sub">{{ improvement.trend | capitalize }}</span>
       </div>
     </div>
   </div>
@@ -128,6 +135,20 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script>
+  // ─── Trend Window ──────────────────────────────────────
+  async function updateTrendWindow(days) {
+    try {
+      await fetch('/api/settings/trend-window', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days: parseInt(days) }),
+      });
+      location.reload();
+    } catch (e) {
+      console.error('Failed to update trend window:', e);
+    }
+  }
+
   // ─── Sync Modal ────────────────────────────────────────
   let previewActivities = [];
 
