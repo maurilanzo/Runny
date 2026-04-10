@@ -63,6 +63,12 @@ def init_db():
             fetched_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS laps (
+            activity_id  INTEGER PRIMARY KEY,
+            laps_data    TEXT NOT NULL,
+            fetched_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE INDEX IF NOT EXISTS idx_activities_date
             ON activities(start_date);
         CREATE INDEX IF NOT EXISTS idx_activities_score

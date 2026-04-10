@@ -137,3 +137,11 @@ def fetch_activity_streams(activity_id: int, access_token: str) -> list:
         access_token,
         params={"keys": keys, "key_by_type": "true"},
     )
+
+
+def fetch_activity_laps(activity_id: int, access_token: str) -> list:
+    """Fetch laps for a single activity."""
+    return _strava_get(
+        f"/activities/{activity_id}/laps",
+        access_token,
+    )

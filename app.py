@@ -17,6 +17,7 @@ from strava_api import (
     fetch_all_activities,
     fetch_activity_detail,
     fetch_activity_streams,
+    fetch_activity_laps,
 )
 from scoring import score_activity, score_all_activities, get_score_color, get_score_label
 from improvement import compute_improvement, get_trend_color, get_trend_icon, DEFAULT_TREND_WINDOW_DAYS
@@ -469,6 +470,40 @@ def activity_streams(activity_id):
         db.commit()
 
         return jsonify(streams)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/activity/<int:activity_id>/laps")
+@require_auth
+def activity_laps(activity_id):
+    """Return laps data for the run analysis chart (cached)."""
+    if not ensure_token():
+        return jsonify({"error": "Authentication expired"}), 401
+
+    db = get_db()
+
+    # Check cache first
+    cached = db.execute(
+        "SELECT laps_data FROM laps WHERE activity_id = ?",
+        (activity_id,),
+    ).fetchone()
+
+    if cached:
+        return jsonify(json.loads(cached["laps_data"]))
+
+    # Fetch from Strava
+    try:
+        laps = fetch_activity_laps(activity_id, session["access_token"])
+
+        # Cache it
+        db.execute(
+            "INSERT OR REPLACE INTO laps (activity_id, laps_data) VALUES (?, ?)",
+            (activity_id, json.dumps(laps)),
+        )
+        db.commit()
+
+        return jsonify(laps)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

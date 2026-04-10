@@ -20,13 +20,15 @@
 {% block content %}
 <div class="page">
   <!-- Back link -->
-  <a href="{{ url_for('activities') }}" class="btn btn-ghost text-sm" style="margin-bottom: 16px; display: inline-flex;">
+  <a href="{{ url_for('activities') }}" class="btn btn-ghost text-sm"
+    style="margin-bottom: 16px; display: inline-flex;">
     ← All Activities
   </a>
 
   <!-- Header -->
   <div class="detail-header">
-    <div class="score-badge score-badge-lg" style="background: {{ get_score_color(activity.runny_score) }}20; color: {{ get_score_color(activity.runny_score) }}">
+    <div class="score-badge score-badge-lg"
+      style="background: {{ get_score_color(activity.runny_score) }}20; color: {{ get_score_color(activity.runny_score) }}">
       {{ activity.runny_score or '—' }}
     </div>
     <div>
@@ -34,7 +36,7 @@
       <p class="text-muted">
         {{ activity.start_date[:10] }} · {{ get_score_label(activity.runny_score) }}
         {% if activity.training_type %}
-          · <span class="text-accent">{{ activity.training_type | capitalize }}</span>
+        · <span class="text-accent">{{ activity.training_type | capitalize }}</span>
         {% endif %}
       </p>
     </div>
@@ -85,7 +87,8 @@
         <div class="breakdown-row fade-in">
           <span class="breakdown-label">Pace (GAP)
             {% if activity.breakdown.gap_sec_per_km %}
-              <span class="text-muted text-xs">{{ (activity.breakdown.gap_sec_per_km // 60) | int }}:{{ '%02d' | format((activity.breakdown.gap_sec_per_km % 60) | int) }}/km</span>
+            <span class="text-muted text-xs">{{ (activity.breakdown.gap_sec_per_km // 60) | int }}:{{ '%02d' |
+              format((activity.breakdown.gap_sec_per_km % 60) | int) }}/km</span>
             {% endif %}
           </span>
           <div class="breakdown-bar-bg">
@@ -98,7 +101,7 @@
         <div class="breakdown-row fade-in">
           <span class="breakdown-label">Cardiac Efficiency
             {% if activity.breakdown.cardiac_efficiency_raw %}
-              <span class="text-muted text-xs">{{ activity.breakdown.cardiac_efficiency_raw }}</span>
+            <span class="text-muted text-xs">{{ activity.breakdown.cardiac_efficiency_raw }}</span>
             {% endif %}
           </span>
           <div class="breakdown-bar-bg">
@@ -111,7 +114,7 @@
         <div class="breakdown-row fade-in">
           <span class="breakdown-label">Execution Quality
             {% if activity.breakdown.training_type %}
-              <span class="text-muted text-xs">{{ activity.breakdown.training_type | capitalize }}</span>
+            <span class="text-muted text-xs">{{ activity.breakdown.training_type | capitalize }}</span>
             {% endif %}
           </span>
           <div class="breakdown-bar-bg">
@@ -124,7 +127,7 @@
         <div class="breakdown-row fade-in">
           <span class="breakdown-label">Elevation Difficulty
             {% if activity.breakdown.elev_per_km %}
-              <span class="text-muted text-xs">{{ activity.breakdown.elev_per_km }} m/km</span>
+            <span class="text-muted text-xs">{{ activity.breakdown.elev_per_km }} m/km</span>
             {% endif %}
           </span>
           <div class="breakdown-bar-bg">
@@ -137,7 +140,8 @@
         <div class="breakdown-row fade-in">
           <span class="breakdown-label">Consistency
             <span class="text-muted text-xs">
-              {% if activity.breakdown.consistency_source == 'stream' %}pace CV{% elif activity.breakdown.consistency_source == 'ratio' %}move ratio{% else %}est.{% endif %}
+              {% if activity.breakdown.consistency_source == 'stream' %}pace CV{% elif
+              activity.breakdown.consistency_source == 'ratio' %}move ratio{% else %}est.{% endif %}
             </span>
           </span>
           <div class="breakdown-bar-bg">
@@ -148,12 +152,12 @@
         {% endif %}
       </div>
       {% if activity.breakdown.active_components %}
-        <p class="text-sm text-muted mt-md">
-          Active weights:
-          {% for comp, pct in activity.breakdown.active_components.items() %}
-            <span style="margin-right: 8px;">{{ comp | replace('_', ' ') | capitalize }} {{ pct }}%</span>
-          {% endfor %}
-        </p>
+      <p class="text-sm text-muted mt-md">
+        Active weights:
+        {% for comp, pct in activity.breakdown.active_components.items() %}
+        <span style="margin-right: 8px;">{{ comp | replace('_', ' ') | capitalize }} {{ pct }}%</span>
+        {% endfor %}
+      </p>
       {% endif %}
     </div>
   </div>
@@ -167,11 +171,16 @@
       <div id="analysis-controls" class="analysis-controls" style="display: none;">
         <div class="analysis-controls-row">
           <div class="analysis-toggles">
-            <label class="analysis-toggle"><input type="checkbox" id="toggle-pace" checked> <span class="toggle-dot" style="background: #ff6b35"></span> Pace</label>
-            <label class="analysis-toggle"><input type="checkbox" id="toggle-hr" checked> <span class="toggle-dot" style="background: #e91e63"></span> HR</label>
-            <label class="analysis-toggle"><input type="checkbox" id="toggle-elevation" checked> <span class="toggle-dot" style="background: #4fc3f7"></span> Elevation</label>
-            <label class="analysis-toggle"><input type="checkbox" id="toggle-cadence"> <span class="toggle-dot" style="background: #ab47bc"></span> Cadence</label>
-            <label class="analysis-toggle"><input type="checkbox" id="toggle-grade"> <span class="toggle-dot" style="background: #78909c"></span> Grade</label>
+            <label class="analysis-toggle"><input type="checkbox" id="toggle-pace" checked> <span class="toggle-dot"
+                style="background: #ff6b35"></span> Pace</label>
+            <label class="analysis-toggle"><input type="checkbox" id="toggle-hr" checked> <span class="toggle-dot"
+                style="background: #e91e63"></span> HR</label>
+            <label class="analysis-toggle"><input type="checkbox" id="toggle-elevation"> <span class="toggle-dot"
+                style="background: #4fc3f7"></span> Elevation</label>
+            <label class="analysis-toggle"><input type="checkbox" id="toggle-cadence"> <span class="toggle-dot"
+                style="background: #ab47bc"></span> Cadence</label>
+            <label class="analysis-toggle"><input type="checkbox" id="toggle-grade"> <span class="toggle-dot"
+                style="background: #78909c"></span> Grade</label>
           </div>
           <div class="analysis-options">
             <div class="analysis-radio-group">
@@ -213,11 +222,59 @@
           <span id="metric-elev" class="text-sm" style="font-weight:600">—</span>
         </div>
       </div>
+      <!-- Selection metrics -->
+      <div id="selection-metrics" class="analysis-derived"
+        style="display: none; border-top: 1px solid rgba(255,255,255,0.06); margin-top: 16px; padding-top: 16px; flex-wrap: wrap;">
+        <div
+          style="width: 100%; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+          <span class="text-sm" style="color: #4fc3f7; font-weight: 600;">Selected interval: <span
+              id="sel-interval-label"></span></span>
+          <button class="btn btn-ghost text-xs" style="padding: 4px 8px; font-size: 11px;"
+            onclick="clearSelection()">Clear selection</button>
+        </div>
+        <div class="analysis-metric-item">
+          <span class="text-muted text-sm">Avg Pace</span>
+          <span id="sel-metric-pace" class="text-sm" style="font-weight:600">—</span>
+        </div>
+        <div class="analysis-metric-item">
+          <span class="text-muted text-sm">Avg HR</span>
+          <span id="sel-metric-hr" class="text-sm" style="font-weight:600">—</span>
+        </div>
+        <div class="analysis-metric-item">
+          <span class="text-muted text-sm">Avg Cadence</span>
+          <span id="sel-metric-cad" class="text-sm" style="font-weight:600">—</span>
+        </div>
+        <div class="analysis-metric-item">
+          <span class="text-muted text-sm">Elev ↑↓</span>
+          <span id="sel-metric-elev" class="text-sm" style="font-weight:600">—</span>
+        </div>
+      </div>
       <div id="analysis-error" style="display: none;">
         <p class="text-muted text-sm" style="padding: 16px; text-align:center;">
           Stream data not available for this activity.
         </p>
       </div>
+    </div>
+  </div>
+
+  <!-- Interval Laps Table -->
+  <div class="section" id="laps-section" style="display: none;">
+    <h2 class="section-title">Intervals</h2>
+    <div class="card card-flat" style="overflow-x: auto; padding: 0;">
+      <table class="text-sm" style="width: 100%; border-collapse: collapse; text-align: right;">
+        <thead>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: #a0a3b8;">
+            <th style="padding: 12px; text-align: center; font-weight: 500;">Parziale</th>
+            <th style="padding: 12px; font-weight: 500;">Distanza</th>
+            <th style="padding: 12px; font-weight: 500;">Tempo</th>
+            <th style="padding: 12px; font-weight: 500;">Passo</th>
+            <th style="padding: 12px; font-weight: 500;">Dislivello</th>
+            <th style="padding: 12px; font-weight: 500;">FC</th>
+          </tr>
+        </thead>
+        <tbody id="laps-tbody" style="color: #f0f0f5;">
+        </tbody>
+      </table>
     </div>
   </div>
 
@@ -229,19 +286,19 @@
         <div class="form-group" style="flex: 1; min-width: 200px;">
           <label class="form-label" for="rpe-slider">RPE (Perceived Effort)</label>
           <div class="flex items-center gap-md">
-            <input type="range" id="rpe-slider" class="range-slider" min="1" max="10"
-                   value="{{ activity.rpe or 5 }}"
-                   oninput="document.getElementById('rpe-val').textContent = this.value" />
-            <span id="rpe-val" style="font-weight:700; font-size:1.25rem; min-width:24px; text-align:center">{{ activity.rpe or 5 }}</span>
+            <input type="range" id="rpe-slider" class="range-slider" min="1" max="10" value="{{ activity.rpe or 5 }}"
+              oninput="document.getElementById('rpe-val').textContent = this.value" />
+            <span id="rpe-val" style="font-weight:700; font-size:1.25rem; min-width:24px; text-align:center">{{
+              activity.rpe or 5 }}</span>
           </div>
         </div>
         <div class="form-group" style="flex: 1; min-width: 200px;">
           <label class="form-label" for="type-select">Training Type</label>
           <select id="type-select" class="form-select">
             {% for t in ['easy', 'moderate', 'tempo', 'long', 'intervals', 'repetitions', 'race'] %}
-              <option value="{{ t }}" {% if activity.training_type == t %}selected{% endif %}>
-                {{ t | capitalize }}
-              </option>
+            <option value="{{ t }}" {% if activity.training_type==t %}selected{% endif %}>
+              {{ t | capitalize }}
+            </option>
             {% endfor %}
           </select>
         </div>
@@ -291,7 +348,268 @@
 
   // ─── Run Analysis Chart ─────────────────────────────────
   let rawStreams = {};
+  let rawLaps = [];
   let analysisChart = null;
+
+  const selectionPlugin = {
+    id: 'selectionPlugin',
+    beforeEvent(chart, args, pluginOptions) {
+      const event = args.event;
+      if (event.type === 'mousedown') {
+        chart.selectionStart = event.x;
+        chart.selectionEnd = event.x;
+        chart.isSelecting = true;
+        chart.hasSelection = false;
+        args.changed = true;
+      } else if (event.type === 'mousemove' && chart.isSelecting) {
+        chart.selectionEnd = event.x;
+        chart.hasSelection = Math.abs(chart.selectionEnd - chart.selectionStart) > 5;
+        args.changed = true;
+      } else if ((event.type === 'mouseup' || event.type === 'mouseout') && chart.isSelecting) {
+        chart.isSelecting = false;
+        if (!chart.hasSelection) {
+          updateSelectionAverages(null, null);
+        } else {
+          const xAxis = chart.scales.x;
+          let startX = Math.min(chart.selectionStart, chart.selectionEnd);
+          let endX = Math.max(chart.selectionStart, chart.selectionEnd);
+          startX = Math.max(startX, chart.chartArea.left);
+          endX = Math.min(endX, chart.chartArea.right);
+          if (xAxis) {
+            updateSelectionAverages(xAxis.getValueForPixel(startX), xAxis.getValueForPixel(endX));
+          }
+        }
+        args.changed = true;
+      }
+    },
+    afterDraw(chart) {
+      if (chart.hasSelection && chart.selectionStart !== undefined && chart.selectionEnd !== undefined) {
+        const ctx = chart.ctx;
+        const top = chart.chartArea.top;
+        const bottom = chart.chartArea.bottom;
+        const left = chart.chartArea.left;
+        const right = chart.chartArea.right;
+        let startX = Math.min(chart.selectionStart, chart.selectionEnd);
+        let endX = Math.max(chart.selectionEnd, chart.selectionStart);
+        startX = Math.max(startX, left);
+        endX = Math.min(endX, right);
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.fillRect(startX, top, endX - startX, bottom - top);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(startX, top);
+        ctx.lineTo(startX, bottom);
+        ctx.moveTo(endX, top);
+        ctx.lineTo(endX, bottom);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  };
+
+  function clearSelection() {
+    if (analysisChart) {
+      analysisChart.hasSelection = false;
+      analysisChart.selectionStart = undefined;
+      analysisChart.selectionEnd = undefined;
+      analysisChart.update();
+    }
+    document.getElementById('selection-metrics').style.display = 'none';
+  }
+
+  function updateSelectionAverages(startChartIdx, endChartIdx) {
+    if (startChartIdx === null || endChartIdx === null || !window._currentSampleIdx) {
+      document.getElementById('selection-metrics').style.display = 'none';
+      return;
+    }
+    const maxIdx = window._currentSampleIdx.length - 1;
+    let sIdx = Math.max(0, Math.min(Math.round(startChartIdx), maxIdx));
+    let eIdx = Math.max(0, Math.min(Math.round(endChartIdx), maxIdx));
+    if (sIdx > eIdx) {
+      let tmp = sIdx; sIdx = eIdx; eIdx = tmp;
+    }
+    const realStart = window._currentSampleIdx[sIdx];
+    const realEnd = window._currentSampleIdx[eIdx];
+    if (realStart === undefined || realEnd === undefined || realEnd <= realStart) {
+      document.getElementById('selection-metrics').style.display = 'none';
+      return;
+    }
+
+    const distance = getStreamData(rawStreams, 'distance');
+    const time = getStreamData(rawStreams, 'time');
+    const velocity = getStreamData(rawStreams, 'velocity_smooth');
+    const hr = getStreamData(rawStreams, 'heartrate');
+    const altitude = getStreamData(rawStreams, 'altitude');
+    const cadence = getStreamData(rawStreams, 'cadence');
+
+    let distDiff = 0;
+    if (distance && distance[realEnd] !== undefined && distance[realStart] !== undefined) {
+      distDiff = (distance[realEnd] - distance[realStart]) / 1000;
+    }
+    let timeDiff = 0;
+    if (time && time[realEnd] !== undefined && time[realStart] !== undefined) {
+      timeDiff = time[realEnd] - time[realStart];
+    }
+    const labelText = distDiff > 0 ? distDiff.toFixed(2) + ' km' : (timeDiff > 0 ? Math.floor(timeDiff / 60) + ':' + String(timeDiff % 60).padStart(2, '0') : '');
+    document.getElementById('sel-interval-label').textContent = labelText;
+
+    const avgArr = (arr, start, end) => {
+      if (!arr) return null;
+      let sum = 0, count = 0;
+      for (let i = start; i <= end; i++) {
+        if (arr[i] !== null && arr[i] !== undefined && arr[i] > 0) {
+          sum += arr[i];
+          count++;
+        }
+      }
+      return count > 0 ? sum / count : null;
+    };
+
+    const avgVelocity = avgArr(velocity, realStart, realEnd);
+    const avgHr = avgArr(hr, realStart, realEnd);
+    const avgCadence = avgArr(cadence, realStart, realEnd);
+
+    document.getElementById('sel-metric-pace').textContent = avgVelocity ? formatPace(velocityToPace(avgVelocity)) : '—';
+    document.getElementById('sel-metric-hr').textContent = avgHr ? Math.round(avgHr) + ' bpm' : '—';
+    document.getElementById('sel-metric-cad').textContent = avgCadence ? Math.round(avgCadence * 2) + ' spm' : '—';
+
+    if (altitude) {
+      let gain = 0, loss = 0;
+      for (let i = realStart + 1; i <= realEnd; i++) {
+        if (altitude[i] !== undefined && altitude[i - 1] !== undefined) {
+          const diff = altitude[i] - altitude[i - 1];
+          if (diff > 0) gain += diff;
+          else loss -= diff;
+        }
+      }
+      document.getElementById('sel-metric-elev').textContent = `+${Math.round(gain)}m / -${Math.round(loss)}m`;
+    } else {
+      document.getElementById('sel-metric-elev').textContent = '—';
+    }
+
+    document.getElementById('selection-metrics').style.display = 'flex';
+  }
+
+  window.selectLap = function (lapIdx) {
+    if (!analysisChart || !window.lapStreamBoundaries) return;
+    const xAxis = analysisChart.scales.x;
+    if (!xAxis || !window._currentSampleIdx) return;
+
+    const streamStart = window.lapStreamBoundaries[lapIdx];
+    const streamEnd = window.lapStreamBoundaries[lapIdx + 1];
+
+    const getChartIdx = (sIdx) => {
+      let closest = -1;
+      let minDiff = Infinity;
+      for (let j = 0; j < window._currentSampleIdx.length; j++) {
+        const diff = Math.abs(window._currentSampleIdx[j] - sIdx);
+        if (diff < minDiff) { minDiff = diff; closest = j; }
+      }
+      return closest;
+    };
+
+    const cStart = getChartIdx(streamStart);
+    const cEnd = getChartIdx(streamEnd);
+
+    if (cStart !== -1 && cEnd !== -1) {
+      analysisChart.selectionStart = xAxis.getPixelForValue(cStart);
+      analysisChart.selectionEnd = xAxis.getPixelForValue(cEnd);
+      analysisChart.hasSelection = true;
+      analysisChart.isSelecting = false;
+      analysisChart.update();
+      updateSelectionAverages(cStart, cEnd);
+    }
+  };
+
+  const lapsPlugin = {
+    id: 'lapsPlugin',
+    afterDraw(chart) {
+      if (!rawLaps || rawLaps.length === 0 || !window.lapStreamBoundaries) return;
+      if ('{{ activity.training_type }}' !== 'intervals') return;
+
+      const ctx = chart.ctx;
+      const xAxis = chart.scales.x;
+      if (!xAxis) return;
+      if (!chart.chartArea) return;
+
+      const top = chart.chartArea.top;
+      const bottom = chart.chartArea.bottom;
+
+      if (!window._currentSampleIdx) return;
+
+      let totalMove = 0, totalDist = 0;
+      rawLaps.forEach(l => { totalMove += l.moving_time || 0; totalDist += l.distance || 0; });
+      const avgPace = totalDist > 0 ? totalMove / (totalDist / 1000) : 0;
+
+      const getChartXByIndex = (streamIdx) => {
+        let closestChartIdx = -1;
+        let minDiff = Infinity;
+        for (let j = 0; j < window._currentSampleIdx.length; j++) {
+          const diff = Math.abs(window._currentSampleIdx[j] - streamIdx);
+          if (diff < minDiff) {
+            minDiff = diff;
+            closestChartIdx = j;
+          }
+        }
+        if (closestChartIdx !== -1) {
+          return xAxis.getPixelForValue(closestChartIdx);
+        }
+        return null;
+      };
+
+      const sortedLaps = [...rawLaps].sort((a, b) => (a.lap_index || 0) - (b.lap_index || 0));
+
+      sortedLaps.forEach((lap, i) => {
+        const xStart = getChartXByIndex(window.lapStreamBoundaries[i]);
+        const xEnd = getChartXByIndex(window.lapStreamBoundaries[i + 1]);
+
+        if (xStart !== null && xEnd !== null) {
+          const lapDistKm = lap.distance ? lap.distance / 1000 : 0;
+          const lapPace = lapDistKm > 0 ? (lap.moving_time || 0) / lapDistKm : Infinity;
+          const isFast = (avgPace > 0 && lapPace < avgPace * 0.95);
+
+          const rectStartX = Math.max(xStart, chart.chartArea.left);
+          const rectEndX = Math.min(xEnd, chart.chartArea.right);
+          if (rectEndX > rectStartX) {
+            ctx.save();
+            if (isFast) {
+                ctx.fillStyle = 'rgba(233, 30, 99, 0.08)'; // Pinkish red for fast laps
+            } else {
+                ctx.fillStyle = i % 2 === 0 ? 'rgba(255, 255, 255, 0.015)' : 'rgba(255, 255, 255, 0.05)';
+            }
+            ctx.fillRect(rectStartX, top, rectEndX - rectStartX, bottom - top);
+            ctx.restore();
+          }
+        }
+
+        if (xEnd !== null && xEnd >= chart.chartArea.left && xEnd <= chart.chartArea.right) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(79, 195, 247, 0.4)';
+          ctx.setLineDash([4, 4]);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(xEnd, top);
+          ctx.lineTo(xEnd, bottom);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        if (xStart !== null && xEnd !== null) {
+          const lapCenter = (xStart + xEnd) / 2;
+          if (lapCenter >= chart.chartArea.left && lapCenter <= chart.chartArea.right) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(79, 195, 247, 0.8)';
+            ctx.font = 'bold 10px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText(`P${lap.lap_index || i + 1}`, lapCenter, top + 15);
+            ctx.restore();
+          }
+        }
+      });
+    }
+  };
 
   function getStreamData(streams, key) {
     // Handle both list format and dict format from Strava
@@ -428,6 +746,7 @@
     }
     const sampleIdx = [];
     for (let i = 0; i < labels.length; i += step) sampleIdx.push(i);
+    window._currentSampleIdx = sampleIdx;
 
     const sample = (arr) => arr ? sampleIdx.map(i => arr[i] !== undefined ? arr[i] : null) : null;
     const sampledLabels = sample(labels);
@@ -579,7 +898,9 @@
     analysisChart = new Chart(ctx, {
       type: 'line',
       data: { labels: sampledLabels, datasets },
+      plugins: [selectionPlugin, lapsPlugin],
       options: {
+        events: ['mousemove', 'mouseout', 'click', 'touchstart', 'touchmove', 'mousedown', 'mouseup'],
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
@@ -599,7 +920,7 @@
             borderColor: 'rgba(255,255,255,0.06)',
             borderWidth: 1,
             callbacks: {
-              label: function(ctx) {
+              label: function (ctx) {
                 const key = ctx.dataset.label;
                 const val = ctx.parsed.y;
                 if (key.includes('Pace')) return `Pace: ${formatPace(val)}`;
@@ -618,13 +939,101 @@
   }
 
   // ─── Init ───────────────────────────────────────────────
-  (async function() {
+  (async function () {
     try {
       const res = await fetch('/api/activity/{{ activity.id }}/streams');
       const data = await res.json();
 
       if (res.ok && !data.error) {
         rawStreams = data;
+
+        if ('{{ activity.training_type }}' === 'intervals') {
+          try {
+            const lapRes = await fetch('/api/activity/{{ activity.id }}/laps');
+            const lapData = await lapRes.json();
+            if (lapRes.ok && !lapData.error && Array.isArray(lapData)) {
+              rawLaps = lapData;
+
+              if (rawLaps.length > 0) {
+                document.getElementById('laps-section').style.display = 'block';
+                const tbody = document.getElementById('laps-tbody');
+                tbody.innerHTML = '';
+
+                // Compute lap stream boundaries globally
+                let accTime = 0;
+                window.lapStreamBoundaries = [0];
+                const sortedLaps = [...rawLaps].sort((a, b) => (a.lap_index || 0) - (b.lap_index || 0));
+
+                let timeStream = null;
+                if (Array.isArray(rawStreams)) {
+                  const s = rawStreams.find(st => st.type === 'time');
+                  timeStream = s ? s.data : null;
+                } else {
+                  timeStream = rawStreams['time'] ? (rawStreams['time'].data || rawStreams['time']) : null;
+                }
+
+                sortedLaps.forEach(lap => {
+                  accTime += lap.elapsed_time || 0;
+                  let bestIdx = lap.end_index; // fallback
+                  if (timeStream && timeStream.length > 0) {
+                    let minTDiff = Infinity;
+                    let closestK = -1;
+                    for (let k = 0; k < timeStream.length; k++) {
+                      const diff = Math.abs(timeStream[k] - accTime);
+                      if (diff < minTDiff) {
+                        minTDiff = diff;
+                        closestK = k;
+                      }
+                    }
+                    if (closestK !== -1) bestIdx = closestK;
+                  }
+                  window.lapStreamBoundaries.push(bestIdx);
+                });
+
+                sortedLaps.forEach((lap, i) => {
+                  const tr = document.createElement('tr');
+                  tr.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+                  tr.style.cursor = 'pointer';
+                  tr.style.transition = 'background-color 0.2s';
+                  tr.onclick = () => window.selectLap(i);
+                  tr.onmouseenter = () => tr.style.backgroundColor = 'rgba(255,255,255,0.06)';
+                  tr.onmouseleave = () => tr.style.backgroundColor = 'transparent';
+
+                  const distanceKm = lap.distance ? (lap.distance / 1000).toFixed(2) : '0.00';
+
+                  let timeStr = '—';
+                  if (lap.moving_time) {
+                    const m = Math.floor(lap.moving_time / 60);
+                    const s = lap.moving_time % 60;
+                    timeStr = `${m}:${String(s).padStart(2, '0')}`;
+                  }
+
+                  let paceStr = '—';
+                  if (lap.distance > 0 && lap.moving_time > 0) {
+                    const secPerKm = lap.moving_time / (lap.distance / 1000);
+                    const pm = Math.floor(secPerKm / 60);
+                    const ps = Math.round(secPerKm % 60);
+                    paceStr = `${pm}:${String(ps).padStart(2, '0')} /km`;
+                  }
+
+                  const trTpl = `
+                          <td style="padding: 12px; text-align: center; font-weight: 600;">${lap.lap_index || i + 1}</td>
+                          <td style="padding: 12px;">${distanceKm} <span class="text-xs text-muted">km</span></td>
+                          <td style="padding: 12px;">${timeStr}</td>
+                          <td style="padding: 12px;">${paceStr}</td>
+                          <td style="padding: 12px;">${lap.total_elevation_gain ? Math.round(lap.total_elevation_gain) : 0} <span class="text-xs text-muted">m</span></td>
+                          <td style="padding: 12px; font-weight: 500;">${lap.average_heartrate ? Math.round(lap.average_heartrate) + ' <span class="text-xs text-muted">bpm</span>' : '—'}</td>
+                      `;
+                  tr.innerHTML = trTpl;
+                  tbody.appendChild(tr);
+                });
+              }
+            }
+          } catch (le) {
+            console.error('Laps fetch error:', le);
+          }
+        }
+
         document.getElementById('analysis-loading').style.display = 'none';
         document.getElementById('analysis-chart').style.display = 'block';
         document.getElementById('analysis-controls').style.display = 'block';
