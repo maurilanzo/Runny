@@ -3,9 +3,15 @@
 
 {% block navbar %}
 <nav class="navbar">
-  <div class="navbar-brand" onclick="location.href='{{ url_for('dashboard') }}'">
-    <div class="logo">R</div>
-    <span>Runny</span>
+  <div class="navbar-brand">
+    <div class="logo" onclick="location.href='{{ url_for('dashboard') }}'">R</div>
+    <span onclick="location.href='{{ url_for('dashboard') }}'">Runny</span>
+    <!-- Sport Toggle -->
+    <div class="sport-toggle" onclick="toggleSport('{{ current_sport }}')">
+      <div class="sport-option {% if current_sport == 'Run' %}active{% endif %}">🏃</div>
+      <div class="sport-option {% if current_sport == 'Ride' %}active{% endif %}">🚴</div>
+      <div class="sport-slider {% if current_sport == 'Ride' %}ride-mode{% endif %}"></div>
+    </div>
   </div>
   <ul class="navbar-nav">
     <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
@@ -50,7 +56,11 @@
           <span>📅 {{ a.start_date[:10] }}</span>
           <span>📏 {{ a.distance | distance_km }} km</span>
           <span>⏱️ {{ a.moving_time | duration }}</span>
-          <span>🏃 {{ a.pace | pace }} /km</span>
+          {% if current_sport == 'Ride' %}
+            <span>🚴 {{ a.pace | speed }} km/h</span>
+          {% else %}
+            <span>🏃 {{ a.pace | pace }} /km</span>
+          {% endif %}
           {% if a.total_elevation_gain %}
             <span>⛰️ {{ a.total_elevation_gain | int }} m</span>
           {% endif %}
@@ -81,6 +91,21 @@
 {% block scripts %}
 <script>
   let selectMode = false;
+
+  // ─── Sport Toggle ──────────────────────────────────────
+  async function toggleSport(currentSport) {
+    const newSport = currentSport === 'Run' ? 'Ride' : 'Run';
+    try {
+      await fetch('/api/settings/sport', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sport: newSport }),
+      });
+      location.reload();
+    } catch (e) {
+      console.error('Failed to change sport:', e);
+    }
+  }
 
   function goToDetail(id) {
     if (selectMode) return; // in select mode, don't navigate

@@ -74,10 +74,10 @@ def _strava_get(endpoint: str, access_token: str, params: dict = None):
     return resp.json()
 
 
-def fetch_all_activities(access_token: str) -> list:
+def fetch_all_activities(access_token: str, active_sport: str = "Run") -> list:
     """
-    Fetch ALL running activities (paginated).
-    Filters to Run and TrailRun sport types only.
+    Fetch ALL running or biking activities (paginated).
+    Filters depending on `active_sport`.
     """
     all_activities = []
     page = 1
@@ -92,14 +92,16 @@ def fetch_all_activities(access_token: str) -> list:
         if not batch:
             break
 
-        # Filter to runs only
-        runs = [
-            a
-            for a in batch
-            if a.get("type") == "Run"
-            or a.get("sport_type") in ("Run", "TrailRun")
-        ]
-        all_activities.extend(runs)
+        # Filter to specific sport types
+        filtered = []
+        for a in batch:
+            sport = a.get("sport_type") or a.get("type", "")
+            if active_sport == "Run" and sport in ("Run", "TrailRun"):
+                filtered.append(a)
+            elif active_sport == "Ride" and sport in ("Ride", "VirtualRide", "MountainBikeRide", "GravelRide", "E-BikeRide"):
+                filtered.append(a)
+                
+        all_activities.extend(filtered)
 
         if len(batch) < per_page:
             break

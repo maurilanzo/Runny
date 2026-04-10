@@ -72,8 +72,16 @@ def format_distance(meters):
     return f"{meters / 1000:.2f}"
 
 
+def format_speed(seconds_per_km):
+    """Format pace (seconds per km) to speed in km/h."""
+    if not seconds_per_km or seconds_per_km <= 0:
+        return "—"
+    return f"{3600 / seconds_per_km:.1f}"
+
+
 # Register template filters
 app.jinja_env.filters["pace"] = format_pace
+app.jinja_env.filters["speed"] = format_speed
 app.jinja_env.filters["duration"] = format_duration
 app.jinja_env.filters["distance_km"] = format_distance
 app.jinja_env.globals["get_score_color"] = get_score_color
@@ -168,8 +176,14 @@ def dashboard():
         return redirect(url_for("login"))
 
     db = get_db()
+    
+    # Get current sport
+    sport_row = db.execute("SELECT value FROM settings WHERE key = 'current_sport'").fetchone()
+    current_sport = sport_row["value"] if sport_row else "Run"
+    sport_types = "('Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'E-BikeRide')" if current_sport == "Ride" else "('Run', 'TrailRun')"
+
     activities = db.execute(
-        "SELECT * FROM activities ORDER BY start_date DESC"
+        f"SELECT * FROM activities WHERE sport_type IN {sport_types} ORDER BY start_date DESC"
     ).fetchall()
     activities = [dict(a) for a in activities]
 
@@ -205,6 +219,7 @@ def dashboard():
         recent=recent,
         athlete_name=athlete_name["value"] if athlete_name else "",
         athlete_avatar=athlete_avatar["value"] if athlete_avatar else "",
+        current_sport=current_sport,
     )
 
 
@@ -217,12 +232,18 @@ def activities():
         return redirect(url_for("login"))
 
     db = get_db()
+    
+    # Get current sport
+    sport_row = db.execute("SELECT value FROM settings WHERE key = 'current_sport'").fetchone()
+    current_sport = sport_row["value"] if sport_row else "Run"
+    sport_types = "('Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'E-BikeRide')" if current_sport == "Ride" else "('Run', 'TrailRun')"
+
     rows = db.execute(
-        "SELECT * FROM activities ORDER BY start_date DESC"
+        f"SELECT * FROM activities WHERE sport_type IN {sport_types} ORDER BY start_date DESC"
     ).fetchall()
     activities_list = [dict(a) for a in rows]
 
-    return render_template("activities.html", activities=activities_list)
+    return render_template("activities.html", activities=activities_list, current_sport=current_sport)
 
 
 @app.route("/activity/<int:activity_id>")
@@ -248,7 +269,11 @@ def activity_detail(activity_id):
     _, breakdown = score_activity(activity, all_acts, db=db)
     activity["breakdown"] = breakdown
 
-    return render_template("detail.html", activity=activity)
+    # Get current sport
+    sport_row = db.execute("SELECT value FROM settings WHERE key = 'current_sport'").fetchone()
+    current_sport = sport_row["value"] if sport_row else "Run"
+
+    return render_template("detail.html", activity=activity, current_sport=current_sport)
 
 
 # ─── API Endpoints ────────────────────────────────────────
@@ -261,8 +286,11 @@ def sync_preview():
         return jsonify({"error": "Authentication expired"}), 401
 
     try:
-        raw_activities = fetch_all_activities(session["access_token"])
         db = get_db()
+        sport_row = db.execute("SELECT value FROM settings WHERE key = 'current_sport'").fetchone()
+        current_sport = sport_row["value"] if sport_row else "Run"
+
+        raw_activities = fetch_all_activities(session["access_token"], active_sport=current_sport)
 
         existing = set(
             r["id"]
@@ -306,8 +334,11 @@ def sync_activities():
         if not selected_ids:
             return jsonify({"error": "No activities selected"}), 400
 
-        raw_activities = fetch_all_activities(session["access_token"])
         db = get_db()
+        sport_row = db.execute("SELECT value FROM settings WHERE key = 'current_sport'").fetchone()
+        current_sport = sport_row["value"] if sport_row else "Run"
+        
+        raw_activities = fetch_all_activities(session["access_token"], active_sport=current_sport)
 
         imported = 0
         for a in raw_activities:
@@ -344,9 +375,10 @@ def sync_activities():
             imported += 1
         db.commit()
 
-        # Score all activities
+        # Score all activities corresponding to this sport type
+        sport_types = "('Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'E-BikeRide')" if current_sport == "Ride" else "('Run', 'TrailRun')"
         all_acts = [dict(r) for r in db.execute(
-            "SELECT * FROM activities ORDER BY start_date DESC"
+            f"SELECT * FROM activities WHERE sport_type IN {sport_types} ORDER BY start_date DESC"
         ).fetchall()]
         scored = score_all_activities(all_acts, db=db)
 
@@ -458,6 +490,22 @@ def update_trend_window():
     db.commit()
     return jsonify({"trend_window_days": days})
 
+@app.route("/api/settings/sport", methods=["POST"])
+@require_auth
+def update_current_sport():
+    """Toggle current sport between Run and Ride."""
+    data = request.get_json()
+    sport = data.get("sport", "Run")
+    if sport not in ("Run", "Ride"):
+        sport = "Run"
+    db = get_db()
+    db.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+        ("current_sport", sport),
+    )
+    db.commit()
+    return jsonify({"current_sport": sport})
+
 
 # ─── Chart Data Endpoint ─────────────────────────────────
 
@@ -465,8 +513,12 @@ def update_trend_window():
 @require_auth
 def chart_data():
     db = get_db()
+    sport_row = db.execute("SELECT value FROM settings WHERE key = 'current_sport'").fetchone()
+    current_sport = sport_row["value"] if sport_row else "Run"
+    sport_types = "('Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'E-BikeRide')" if current_sport == "Ride" else "('Run', 'TrailRun')"
+
     activities = [dict(a) for a in db.execute(
-        "SELECT * FROM activities ORDER BY start_date ASC"
+        f"SELECT * FROM activities WHERE sport_type IN {sport_types} ORDER BY start_date ASC"
     ).fetchall()]
 
     # Read configurable window

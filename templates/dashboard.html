@@ -3,9 +3,15 @@
 
 {% block navbar %}
 <nav class="navbar">
-  <div class="navbar-brand" onclick="location.href='{{ url_for('dashboard') }}'">
-    <div class="logo">R</div>
-    <span>Runny</span>
+  <div class="navbar-brand">
+    <div class="logo" onclick="location.href='{{ url_for('dashboard') }}'">R</div>
+    <span onclick="location.href='{{ url_for('dashboard') }}'">Runny</span>
+    <!-- Sport Toggle -->
+    <div class="sport-toggle" onclick="toggleSport('{{ current_sport }}')">
+      <div class="sport-option {% if current_sport == 'Run' %}active{% endif %}">🏃</div>
+      <div class="sport-option {% if current_sport == 'Ride' %}active{% endif %}">🚴</div>
+      <div class="sport-slider {% if current_sport == 'Ride' %}ride-mode{% endif %}"></div>
+    </div>
   </div>
   <ul class="navbar-nav">
     <li><a href="{{ url_for('dashboard') }}" class="active">Dashboard</a></li>
@@ -92,7 +98,11 @@
             <span>📅 {{ a.start_date[:10] }}</span>
             <span>📏 {{ a.distance | distance_km }} km</span>
             <span>⏱️ {{ a.moving_time | duration }}</span>
-            <span>🏃 {{ a.pace | pace }} /km</span>
+            {% if current_sport == 'Ride' %}
+              <span>🚴 {{ a.pace | speed }} km/h</span>
+            {% else %}
+              <span>🏃 {{ a.pace | pace }} /km</span>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -146,6 +156,21 @@
       location.reload();
     } catch (e) {
       console.error('Failed to update trend window:', e);
+    }
+  }
+
+  // ─── Sport Toggle ──────────────────────────────────────
+  async function toggleSport(currentSport) {
+    const newSport = currentSport === 'Run' ? 'Ride' : 'Run';
+    try {
+      await fetch('/api/settings/sport', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sport: newSport }),
+      });
+      location.reload();
+    } catch (e) {
+      console.error('Failed to change sport:', e);
     }
   }
 
@@ -304,6 +329,34 @@
               bodyColor: '#a0a3b8',
               borderColor: 'rgba(255,255,255,0.06)',
               borderWidth: 1,
+              callbacks: {
+                afterBody: function(tooltipItems) {
+                  const idx = tooltipItems[0].dataIndex;
+                  const h = history[idx];
+                  if (!h) return [];
+                  
+                  const paceM = Math.floor(h.pace / 60);
+                  const paceS = String(Math.floor(h.pace % 60)).padStart(2, '0');
+                  const mins = Math.floor(h.moving_time / 60);
+                  const secs = String(h.moving_time % 60).padStart(2, '0');
+                  const dist = (h.distance / 1000).toFixed(2);
+                  const avgHr = h.average_heartrate ? Math.round(h.average_heartrate) : '--';
+                  const maxHr = h.max_heartrate ? Math.round(h.max_heartrate) : '--';
+
+                  const isRide = '{{ current_sport }}' === 'Ride';
+                  const speedHtml = isRide ? `${(3600 / h.pace).toFixed(1)} km/h` : `${paceM}:${paceS} /km`;
+                  
+                  return [
+                    '',
+                    `Title: ${h.name}`,
+                    `Time: ${mins}:${secs}`,
+                    `Distance: ${dist} km`,
+                    `${isRide ? 'Avg Speed' : 'Avg Pace'}: ${speedHtml}`,
+                    `Avg HR: ${avgHr} bpm`,
+                    `Max HR: ${maxHr} bpm`
+                  ];
+                }
+              }
             },
           },
           scales: {

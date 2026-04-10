@@ -34,7 +34,14 @@ def _split_windows(activities, window_days=DEFAULT_TREND_WINDOW_DAYS):
     Activities must be passed in any order (sorted internally).
     Returns (recent_list, previous_list).
     """
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    # Use the most recent activity date as 'now' so data isn't lost if the user hasn't synced recently
+    latest_dt = None
+    for a in activities:
+        dt = _parse_date(a.get("start_date", ""))
+        if dt and (latest_dt is None or dt > latest_dt):
+            latest_dt = dt
+            
+    now = latest_dt if latest_dt else datetime.now(timezone.utc).replace(tzinfo=None)
     cutoff_recent = now - timedelta(days=window_days)
     cutoff_previous = now - timedelta(days=window_days * 2)
 
@@ -179,13 +186,19 @@ def compute_improvement(activities: list, window_days: int = DEFAULT_TREND_WINDO
             "name": a.get("name", ""),
             "score": a.get("runny_score", 0) or 0,
             "ewma": round(ewma[i], 1),
+            "pace": a.get("pace", 0),
+            "moving_time": a.get("moving_time", 0),
+            "distance": a.get("distance", 0),
+            "average_heartrate": a.get("average_heartrate"),
+            "max_heartrate": a.get("max_heartrate"),
         }
         for i, a in enumerate(sorted_acts)
     ]
 
     # Legacy EWMA values
     current_ewma = ewma[-1] if ewma else 0
-    prev_idx = max(0, len(ewma) - 30 - 1)
+    # Use window_days instead of a hardcoded 30 to respect user's time window selection
+    prev_idx = max(0, len(ewma) - window_days - 1)
     previous_ewma = ewma[prev_idx] if ewma else 0
     improvement_pct = (
         ((current_ewma - previous_ewma) / previous_ewma * 100)

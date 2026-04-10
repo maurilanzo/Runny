@@ -79,16 +79,27 @@ def _parse_date(date_str):
         return None
 
 
-def _get_baseline(all_activities, exclude_id=None):
+def _get_baseline(all_activities, exclude_id=None, sport_group=None):
     """
     Filter activities to the last BASELINE_WINDOW_DAYS,
-    excluding the current activity by ID.
+    excluding the current activity by ID and limiting to the correct sport_group.
     """
     cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=BASELINE_WINDOW_DAYS)
     baseline = []
+    
+    run_types = {"Run", "TrailRun"}
+    ride_types = {"Ride", "VirtualRide", "MountainBikeRide", "GravelRide", "E-BikeRide"}
+    
     for a in all_activities:
         if exclude_id is not None and a.get("id") == exclude_id:
             continue
+            
+        sport = a.get("sport_type") or a.get("type", "Run")
+        if sport_group == "Run" and sport not in run_types:
+            continue
+        if sport_group == "Ride" and sport not in ride_types:
+            continue
+            
         dt = _parse_date(a.get("start_date", ""))
         if dt and dt >= cutoff:
             baseline.append(a)
@@ -124,7 +135,7 @@ def _fractional_rank(value, sorted_values, invert=False):
     return _percentile_rank(value, sorted_values, invert) / 100.0
 
 
-def _elevation_adjusted_pace(pace_sec_per_km, elevation_gain_m, distance_m):
+def _elevation_adjusted_pace(pace_sec_per_km, elevation_gain_m, distance_m, is_ride=False):
     """
     Approximate Grade Adjusted Pace (GAP).
     Adds time per km based on average grade.
@@ -138,11 +149,16 @@ def _elevation_adjusted_pace(pace_sec_per_km, elevation_gain_m, distance_m):
     distance_km = distance_m / 1000.0
     avg_grade_pct = (elevation_gain_m / distance_m) * 100.0 if elevation_gain_m else 0
 
-    # Subtract the grade penalty to get flat-equivalent pace
-    # (i.e., a hilly run gets a *better* adjusted pace than the raw pace)
-    adjustment = avg_grade_pct * GAP_SECONDS_PER_PERCENT_GRADE
+    gap_adjustment = 3 if is_ride else GAP_SECONDS_PER_PERCENT_GRADE
+    adjustment = avg_grade_pct * gap_adjustment
     adjusted = pace_sec_per_km - adjustment
     return max(60, adjusted)  # Floor at 1:00/km to avoid nonsense values
+
+    # Subtract the grade penalty to get flat-equivalent pace
+    # (i.e., a hilly run gets a *better* adjusted pace than the raw pace)
+    # Note: caller should pass `gap_sec_per_percent` based on whether it's a ride or run
+    # For backwards compat, defaulting to running GAP parameter
+    return max(60, pace_sec_per_km)  # Handled below
 
 
 def _cardiac_efficiency(pace_sec_per_km, avg_hr):
@@ -321,7 +337,12 @@ def score_activity(activity: dict, all_activities: list, db=None) -> tuple:
     - The final weighted score
     """
     exclude_id = activity.get("id")
-    baseline = _get_baseline(all_activities, exclude_id=exclude_id)
+    sport_name = activity.get("sport_type") or activity.get("type", "Run")
+    ride_types = {"Ride", "VirtualRide", "MountainBikeRide", "GravelRide", "E-BikeRide"}
+    is_ride = sport_name in ride_types
+    sport_group = "Ride" if is_ride else "Run"
+
+    baseline = _get_baseline(all_activities, exclude_id=exclude_id, sport_group=sport_group)
     use_percentile = len(baseline) >= MIN_ACTIVITIES_FOR_PERCENTILE
 
     # ── Build sorted arrays from baseline ──
@@ -330,6 +351,7 @@ def score_activity(activity: dict, all_activities: list, db=None) -> tuple:
             a.get("pace", 0),
             a.get("total_elevation_gain", 0),
             a.get("distance", 0),
+            is_ride=is_ride,
         )
         for a in baseline
         if a.get("pace", 0) > 0
@@ -358,12 +380,14 @@ def score_activity(activity: dict, all_activities: list, db=None) -> tuple:
             pace,
             activity.get("total_elevation_gain", 0),
             activity.get("distance", 0),
+            is_ride=is_ride,
         )
         if use_percentile and baseline_paces:
             p = _percentile_rank(gap, baseline_paces, invert=True)
         else:
-            # Fallback: ratio to 6:00/km (360s)
-            p = min(100, max(0, (360 / gap) * 50))
+            # Fallback: ratio to 6:00/km (360s) for run, or 2:00/km (120s) for bike
+            fallback_pace = 120 if is_ride else 360
+            p = min(100, max(0, (fallback_pace / gap) * 50))
         breakdown["pace"] = round(p, 1)
         breakdown["gap_sec_per_km"] = round(gap, 1)
         weighted_sum += p * ACTIVITY_WEIGHTS["pace"]
@@ -377,7 +401,8 @@ def score_activity(activity: dict, all_activities: list, db=None) -> tuple:
             p = _percentile_rank(ce, baseline_efficiencies)
         else:
             # Fallback: ratio to a typical efficiency
-            p = min(100, max(0, (ce / 20.0) * 50))
+            fallback_ce = 60.0 if is_ride else 20.0
+            p = min(100, max(0, (ce / fallback_ce) * 50))
         breakdown["cardiac_efficiency"] = round(p, 1)
         breakdown["cardiac_efficiency_raw"] = round(ce, 2)
         weighted_sum += p * ACTIVITY_WEIGHTS["cardiac_efficiency"]
@@ -406,7 +431,8 @@ def score_activity(activity: dict, all_activities: list, db=None) -> tuple:
             p = _percentile_rank(elev_rate, baseline_elev_rates)
         else:
             # Fallback: ratio to 10m/km
-            p = min(100, max(0, (elev_rate / 10.0) * 50))
+            fallback_elev = 15.0 if is_ride else 10.0
+            p = min(100, max(0, (elev_rate / fallback_elev) * 50))
         breakdown["elevation_difficulty"] = round(p, 1)
         breakdown["elev_per_km"] = round(elev_rate, 1)
         weighted_sum += p * ACTIVITY_WEIGHTS["elevation_difficulty"]
