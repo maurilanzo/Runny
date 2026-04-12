@@ -10,7 +10,7 @@ from scoring import (
     score_all_activities,
     get_score_color,
     get_score_label,
-    _elevation_adjusted_pace,
+    _approximate_adjusted_pace,
     _cardiac_efficiency,
     _percentile_rank,
     _zone_match_score,
@@ -102,27 +102,27 @@ class TestPercentileRank:
         assert result_fast > result_slow
 
 
-class TestElevationAdjustedPace:
+class TestApproximateAdjustedPace:
     def test_flat_course(self):
         # No elevation → no adjustment
-        gap = _elevation_adjusted_pace(300, 0, 10000)
+        gap = _approximate_adjusted_pace(300, 0, 10000)
         assert gap == 300
 
     def test_hilly_course(self):
-        # 200m elevation over 10km = 2% grade → should subtract ~24s
-        gap = _elevation_adjusted_pace(360, 200, 10000)
+        # 200m elevation over 10km = 2% grade → should subtract ~18s
+        gap = _approximate_adjusted_pace(360, 200, 10000)
         assert gap < 360
 
     def test_minimum_floor(self):
         # Extreme case shouldn't go below 60 sec/km
-        gap = _elevation_adjusted_pace(120, 1000, 5000)
+        gap = _approximate_adjusted_pace(120, 1000, 5000)
         assert gap >= 60
 
     def test_zero_pace(self):
-        assert _elevation_adjusted_pace(0, 100, 10000) == 0
+        assert _approximate_adjusted_pace(0, 100, 10000) == 0
 
     def test_zero_distance(self):
-        assert _elevation_adjusted_pace(300, 100, 0) == 300
+        assert _approximate_adjusted_pace(300, 100, 0) == 300
 
 
 class TestCardiacEfficiency:
@@ -196,7 +196,7 @@ class TestScoreActivity:
         activity = _make_activity(id=999, days_ago=1, avg_hr=None, max_hr=None)
         score, breakdown = score_activity(activity, baseline)
         assert 0 <= score <= 100
-        assert "cardiac_efficiency" not in breakdown
+        assert breakdown["cardiac_efficiency"] == 50.0
 
     def test_fast_run_scores_higher_than_slow(self):
         baseline = _make_baseline()
@@ -242,7 +242,7 @@ class TestScoreLabels:
         assert get_score_color(None) == "#6b6f88"
 
     def test_label_for_high(self):
-        assert get_score_label(90) == "Elite"
+        assert get_score_label(90) == "Exceptional"
 
     def test_label_for_none(self):
         assert get_score_label(None) == "—"
