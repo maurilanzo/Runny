@@ -49,7 +49,8 @@ def init_db():
             rpe             INTEGER,
             training_type   TEXT,
             runny_score     INTEGER,
-            imported_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            imported_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_modified     BOOLEAN DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS settings (

@@ -408,15 +408,37 @@ def delete_activity(activity_id):
 @app.route("/api/activity/<int:activity_id>/update", methods=["POST"])
 @require_auth
 def update_activity(activity_id):
-    """Update RPE / training type and re-score."""
+    """Update activity parameters and re-score."""
     data = request.get_json()
-    rpe = data.get("rpe")
-    training_type = data.get("training_type")
 
     db = get_db()
+    activity = db.execute("SELECT * FROM activities WHERE id = ?", (activity_id,)).fetchone()
+    if not activity:
+        return jsonify({"error": "Activity not found"}), 404
+        
+    activity = dict(activity)
+
+    new_rpe = data.get("rpe", activity["rpe"])
+    new_training_type = data.get("training_type", activity["training_type"])
+    
+    new_name = data.get("name", activity["name"])
+    new_distance = float(data.get("distance")) if data.get("distance") is not None else activity["distance"]
+    new_moving_time = int(data.get("moving_time")) if data.get("moving_time") is not None else activity["moving_time"]
+    new_elevation = float(data.get("total_elevation_gain")) if data.get("total_elevation_gain") is not None else activity["total_elevation_gain"]
+    
+    new_pace = (new_moving_time / (new_distance / 1000)) if new_distance and new_distance > 0 else 0
+    
+    is_modified = activity.get("is_modified", 0)
+    if any(k in data for k in ("name", "distance", "moving_time", "total_elevation_gain")):
+        is_modified = 1
+
     db.execute(
-        "UPDATE activities SET rpe = ?, training_type = ? WHERE id = ?",
-        (rpe, training_type, activity_id),
+        """UPDATE activities 
+           SET rpe = ?, training_type = ?, name = ?, distance = ?, 
+               moving_time = ?, total_elevation_gain = ?, pace = ?, is_modified = ? 
+           WHERE id = ?""",
+        (new_rpe, new_training_type, new_name, new_distance, new_moving_time, 
+         new_elevation, new_pace, is_modified, activity_id),
     )
     db.commit()
 

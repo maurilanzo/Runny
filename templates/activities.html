@@ -43,7 +43,10 @@
 
   {% if activities %}
     {% for a in activities %}
-    <div class="card activity-card fade-in" data-id="{{ a.id }}" data-name="{{ a.name | e }}">
+    <div class="card activity-card fade-in" data-id="{{ a.id }}" data-name="{{ a.name | e }}"
+         data-distance="{{ a.distance }}" data-moving-time="{{ a.moving_time }}"
+         data-elevation="{{ a.total_elevation_gain or 0 }}" data-rpe="{{ a.rpe or '' }}"
+         data-training-type="{{ a.training_type or '' }}">
       <input type="checkbox" class="activity-checkbox" value="{{ a.id }}"
              style="display:none" onchange="updateDeleteCount()" onclick="event.stopPropagation()" />
       <div class="score-badge" style="background: {{ get_score_color(a.runny_score) }}20; color: {{ get_score_color(a.runny_score) }}; --score-color: {{ get_score_color(a.runny_score) }}; --score-pct: {{ a.runny_score or 0 }}"
@@ -70,12 +73,21 @@
           {% if a.training_type %}
             <span class="text-accent">{{ a.training_type | capitalize }}</span>
           {% endif %}
+          {% if a.is_modified %}
+            <span class="text-accent" style="color: var(--yellow); font-size: 0.85em; margin-left: 4px; padding: 2px 6px; background: rgba(255, 193, 7, 0.1); border-radius: 4px;">Modified</span>
+          {% endif %}
         </div>
       </div>
-      <button class="btn btn-delete single-delete" title="Delete activity"
-              onclick="event.stopPropagation(); deleteOne(this)">
-        🗑️
-      </button>
+      <div class="action-buttons single-action-group" style="display: flex; gap: 8px;">
+        <button class="btn btn-ghost single-edit" title="Edit activity" style="padding: 4px; font-size: 1.1em;"
+                onclick="event.stopPropagation(); editActivity(this)">
+          ✏️
+        </button>
+        <button class="btn btn-delete single-delete" title="Delete activity"
+                onclick="event.stopPropagation(); deleteOne(this)">
+          🗑️
+        </button>
+      </div>
     </div>
     {% endfor %}
   {% else %}
@@ -86,6 +98,59 @@
     </div>
   {% endif %}
 </div>
+  <!-- Edit Activity Modal -->
+  <div id="edit-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center;">
+    <div class="card" style="width: 100%; max-width: 400px; background: var(--bg-card); padding: 24px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+      <h2 style="margin-top: 0; margin-bottom: 16px;">Edit Activity</h2>
+      
+      <input type="hidden" id="edit-id" />
+      
+      <div class="form-group" style="margin-bottom: 12px;">
+        <label class="form-label" for="edit-name">Name</label>
+        <input type="text" id="edit-name" class="form-input" style="width: 100%; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff;" />
+      </div>
+      
+      <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="edit-distance">Dist (m)</label>
+          <input type="number" id="edit-distance" class="form-input" style="width: 100%; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff;" />
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="edit-time">Time (s)</label>
+          <input type="number" id="edit-time" class="form-input" style="width: 100%; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff;" />
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="edit-elev">Elev (m)</label>
+          <input type="number" id="edit-elev" class="form-input" style="width: 100%; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff;" />
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 12px; margin-bottom: 24px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="edit-rpe">RPE</label>
+          <input type="number" id="edit-rpe" class="form-input" min="1" max="10" placeholder="1-10" style="width: 100%; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff;" />
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="edit-type">Type</label>
+          <select id="edit-type" class="form-select" style="width: 100%; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff;">
+            <option value="">None</option>
+            <option value="easy">Easy</option>
+            <option value="moderate">Moderate</option>
+            <option value="tempo">Tempo</option>
+            <option value="long">Long</option>
+            <option value="intervals">Intervals</option>
+            <option value="repetitions">Repetitions</option>
+            <option value="race">Race</option>
+          </select>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveActivityEdit()">Save</button>
+      </div>
+    </div>
+  </div>
 {% endblock %}
 
 {% block scripts %}
@@ -119,7 +184,7 @@
     const btn = document.getElementById('select-toggle');
     const allBtn = document.getElementById('select-all-btn');
     const delBtn = document.getElementById('delete-selected-btn');
-    const singleBtns = document.querySelectorAll('.single-delete');
+    const singleBtns = document.querySelectorAll('.single-action-group');
 
     if (selectMode) {
       btn.textContent = '✕ Cancel';
@@ -202,6 +267,52 @@
 
     showToast('Deleted ' + deleted + ' activities');
     setTimeout(() => location.reload(), 600);
+  }
+  // ─── Edit Activity Modal ───────────────────────────────
+  function editActivity(btn) {
+    const card = btn.closest('.activity-card');
+    document.getElementById('edit-id').value = card.dataset.id;
+    document.getElementById('edit-name').value = card.dataset.name || '';
+    document.getElementById('edit-distance').value = card.dataset.distance || '';
+    document.getElementById('edit-time').value = card.dataset.movingTime || '';
+    document.getElementById('edit-elev').value = card.dataset.elevation || '';
+    document.getElementById('edit-rpe').value = card.dataset.rpe || '';
+    document.getElementById('edit-type').value = card.dataset.trainingType || '';
+    
+    document.getElementById('edit-modal').style.display = 'flex';
+  }
+
+  function closeEditModal() {
+    document.getElementById('edit-modal').style.display = 'none';
+  }
+
+  async function saveActivityEdit() {
+    const id = document.getElementById('edit-id').value;
+    const data = {
+      name: document.getElementById('edit-name').value,
+      distance: parseFloat(document.getElementById('edit-distance').value) || 0,
+      moving_time: parseInt(document.getElementById('edit-time').value) || 0,
+      total_elevation_gain: parseFloat(document.getElementById('edit-elev').value) || 0,
+      rpe: parseInt(document.getElementById('edit-rpe').value) || null,
+      training_type: document.getElementById('edit-type').value || null
+    };
+
+    try {
+      const res = await fetch('/api/activity/' + id + '/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        showToast('Activity updated');
+        setTimeout(() => location.reload(), 500);
+      } else {
+        const error = await res.json();
+        showToast(error.error || 'Update failed', 'error');
+      }
+    } catch (e) {
+      showToast('Error: ' + e.message, 'error');
+    }
   }
 </script>
 {% endblock %}
