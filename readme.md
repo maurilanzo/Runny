@@ -28,24 +28,29 @@ Runny/
 
 ## Key Components
 
-### Scoring Engine ([scoring.py](file:///Users/maurii/Desktop/Runny/scoring.py))
-| Factor | Weight | Better = |
-|---|---|---|
-| Distance | 20% | Longer |
-| Pace | 20% | Faster (inverted) |
-| Elevation | 15% | More climbing |
-| Duration | 10% | Longer |
-| Avg HR | 10% | Higher effort |
-| RPE | 10% | Higher perceived effort |
-| Max HR | 5% | Higher peak |
-| Training Type | 10% | Multiplier (Easy→0.8, Race→1.3) |
+### Scoring Engine (`scoring.py`)
+Provides a **Relative Session-Quality Score (0-100)** answering: *"How strong/efficient was this session relative to my recent comparable baseline?"*
 
-Scores are **percentile-based** against the last 90 days. Falls back to absolute benchmarks when < 5 activities exist.
+| Factor | Aerobic Weight | Quality Weight | Description |
+|---|---|---|---|
+| Pace | 40% | 50% | Percentile rank against past comparable baseline. |
+| Aerobic Efficiency | 30% | 20% | Speed/HR ratio, indicating cardiovascular efficiency. |
+| Execution Quality | 20% | 20% | Variance penalizing (evaluates plausible intent-alignment). |
+| Consistency | 10% | 10% | Variance of pace evaluating session stability (CV). |
 
-### Improvement Index ([improvement.py](file:///Users/maurii/Desktop/Runny/improvement.py))
-- **EWMA** (α=0.1) over all scored activities
-- Compares current vs. 30-activities-ago EWMA
-- Trend: 📈 improving (>+2%), ➡️ flat (±2%), 📉 declining (<-2%)
+Scores are **percentile-based** against the last 90 days. Falls back to global sport medians if the baseline is too sparse. Evaluates `aerobic` runs (easy, moderate, long) differently than `quality` sessions (tempo, intervals, race).
+
+### Improvement Index (`improvement.py`)
+Answers: *"Am I improving over time, and by how much?"*
+
+Instead of simply averaging activity scores, it focuses on capability and aerobic development across two consecutive 42-day time windows.
+- **Primary Signals**: Critical Speed (recent best efforts) & Aerobic Efficiency (submaximal runs).
+- **Secondary Signals**: Adjusted aerobic pace.
+- **Trend Logic**: 📈 Improving (Index ≥ 57), ➡️ Flat, 📉 Declining (Index ≤ 43).
+- **Fallback**: EWMA is retained for charts and as a last-resort fallback.
+
+### Activity Analysis (`detail.html`)
+The frontend computes a suite of interval and effort metrics, notably calculating **Cardiac Drift (Aerobic Decoupling)** by evaluating the change in the HR/Speed ratio between the first and last quarters of an activity.
 
 ### Strava Integration ([strava_api.py](file:///Users/maurii/Desktop/Runny/strava_api.py))
 - Full OAuth2 flow with auto token refresh

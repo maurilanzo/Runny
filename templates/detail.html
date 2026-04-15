@@ -674,17 +674,48 @@
 
     // Cardiac drift
     if (hr && hr.length > 10) {
-      const validHr = hr.filter(h => h > 0);
-      const q1End = Math.floor(validHr.length * 0.25);
-      const q4Start = Math.floor(validHr.length * 0.75);
-      const firstQ = validHr.slice(0, q1End);
-      const lastQ = validHr.slice(q4Start);
-      if (firstQ.length && lastQ.length) {
-        const avgFirst = firstQ.reduce((a, b) => a + b, 0) / firstQ.length;
-        const avgLast = lastQ.reduce((a, b) => a + b, 0) / lastQ.length;
-        const drift = ((avgLast - avgFirst) / avgFirst * 100).toFixed(1);
-        document.getElementById('metric-cardiac-drift').textContent =
-          (drift > 0 ? '+' : '') + drift + '%';
+      let pairs = [];
+      if (velocity && velocity.length > 10) {
+        const minLen = Math.min(hr.length, velocity.length);
+        for (let i = 0; i < minLen; i++) {
+          if (hr[i] > 0 && velocity[i] > 0.5) {
+            pairs.push({ hr: hr[i], vel: velocity[i] });
+          }
+        }
+      }
+
+      if (pairs.length > 10) {
+        const q1End = Math.floor(pairs.length * 0.25);
+        const q4Start = Math.floor(pairs.length * 0.75);
+        const firstQ = pairs.slice(0, q1End);
+        const lastQ = pairs.slice(q4Start);
+
+        if (firstQ.length && lastQ.length) {
+          const avgHrFirst = firstQ.reduce((sum, p) => sum + p.hr, 0) / firstQ.length;
+          const avgVelFirst = firstQ.reduce((sum, p) => sum + p.vel, 0) / firstQ.length;
+          const ratioFirst = avgHrFirst / avgVelFirst;
+
+          const avgHrLast = lastQ.reduce((sum, p) => sum + p.hr, 0) / lastQ.length;
+          const avgVelLast = lastQ.reduce((sum, p) => sum + p.vel, 0) / lastQ.length;
+          const ratioLast = avgHrLast / avgVelLast;
+
+          const drift = ((ratioLast - ratioFirst) / ratioFirst * 100).toFixed(1);
+          document.getElementById('metric-cardiac-drift').textContent =
+            (drift > 0 ? '+' : '') + drift + '%';
+        }
+      } else {
+        const validHr = hr.filter(h => h > 0);
+        const q1End = Math.floor(validHr.length * 0.25);
+        const q4Start = Math.floor(validHr.length * 0.75);
+        const firstQ = validHr.slice(0, q1End);
+        const lastQ = validHr.slice(q4Start);
+        if (firstQ.length && lastQ.length) {
+          const avgFirst = firstQ.reduce((a, b) => a + b, 0) / firstQ.length;
+          const avgLast = lastQ.reduce((a, b) => a + b, 0) / lastQ.length;
+          const drift = ((avgLast - avgFirst) / avgFirst * 100).toFixed(1);
+          document.getElementById('metric-cardiac-drift').textContent =
+            (drift > 0 ? '+' : '') + drift + '%';
+        }
       }
     }
 
