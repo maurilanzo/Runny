@@ -570,3 +570,165 @@ h3 { font-size: 1.125rem; font-weight: 600; }
   .breakdown-label { width: 110px; }
 }
 
+/* ─── Compare Page ───────────────────────────────────── */
+
+.compare-search-wrap { margin-bottom: var(--space-lg); }
+.compare-search {
+  width: 100%; padding: var(--space-md) var(--space-lg);
+  font-size: 1rem; border-radius: var(--radius-lg);
+  background: var(--bg-glass); border: 1px solid var(--border);
+  color: var(--text-primary);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.compare-search:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.compare-picker { display: flex; flex-direction: column; gap: var(--space-xs); max-height: 55vh; overflow-y: auto; }
+.compare-pick-card {
+  display: flex; align-items: center; gap: var(--space-lg);
+  padding: var(--space-md) var(--space-lg); cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.compare-pick-card:hover {
+  border-color: var(--accent); transform: translateX(4px);
+}
+
+.compare-type-badge {
+  display: inline-block; padding: 2px 10px; font-size: 0.75rem;
+  font-weight: 600; border-radius: var(--radius-full);
+  background: var(--accent-glow); color: var(--accent);
+  letter-spacing: 0.02em;
+}
+
+.compare-source-card {
+  border-left: 3px solid var(--accent);
+  background: rgba(255, 107, 53, 0.04);
+}
+
+.compare-sim-badge {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 56px; height: 56px; border-radius: var(--radius-md);
+  font-weight: 800; font-size: 1rem; flex-shrink: 0;
+  border: 1px solid; gap: 0;
+}
+.compare-sim-badge .text-xs { font-size: 0.6rem; font-weight: 500; opacity: 0.7; }
+
+/* ─── Similarity Header ─────────────────────────────── */
+
+.compare-similarity-header {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-xl);
+  background: linear-gradient(135deg, rgba(255,255,255,0.02), rgba(255,255,255,0.05));
+  border: 1px solid var(--border);
+}
+.compare-sim-header-inner {
+  display: flex; align-items: center; gap: var(--space-xl);
+}
+.compare-sim-ring {
+  position: relative; width: 80px; height: 80px; flex-shrink: 0;
+}
+.compare-sim-svg {
+  width: 100%; height: 100%;
+  transform: rotate(-90deg);
+}
+.compare-sim-bg {
+  fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 3;
+}
+.compare-sim-fill {
+  fill: none; stroke-width: 3; stroke-linecap: round;
+  animation: simFillIn 1s ease forwards;
+}
+@keyframes simFillIn {
+  from { stroke-dasharray: 0, 100; }
+}
+.compare-sim-value {
+  position: absolute; inset: 0; display: flex; align-items: center;
+  justify-content: center; font-weight: 800; font-size: 1.25rem;
+}
+.compare-sim-title {
+  font-size: 1.125rem; font-weight: 700; color: var(--text-primary);
+  margin-bottom: var(--space-xs);
+}
+.compare-sim-tag {
+  display: inline-block; font-size: 0.75rem; font-weight: 600;
+  padding: 4px 12px; border-radius: var(--radius-full);
+  margin-top: var(--space-sm);
+}
+
+/* ─── Side-by-Side Grid ──────────────────────────────── */
+
+.compare-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: var(--space-md); margin-bottom: var(--space-md);
+}
+@media (max-width: 768px) { .compare-grid { grid-template-columns: 1fr; } }
+
+.compare-activity-col { text-align: center; padding: var(--space-xl); }
+.compare-col-label {
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; margin-bottom: var(--space-sm);
+}
+.compare-col-title { font-size: 1.25rem; font-weight: 700; margin-bottom: var(--space-xs); }
+.compare-col-date { margin-bottom: var(--space-md); }
+.compare-col-score { margin-bottom: var(--space-md); }
+.compare-col-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); text-align: left; }
+.compare-stat { padding: var(--space-sm); background: var(--bg-glass); border-radius: var(--radius-sm); }
+.compare-stat-label { display: block; font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.compare-stat-value { display: block; font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-top: 2px; }
+
+/* ─── Metric Bar Comparison ──────────────────────────── */
+
+.compare-bars-card { padding: var(--space-xl); margin-bottom: var(--space-md); }
+.compare-section-label {
+  font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  margin-bottom: var(--space-lg);
+}
+
+.compare-bar-row { margin-bottom: var(--space-lg); }
+.compare-bar-label {
+  font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);
+  margin-bottom: var(--space-sm); display: flex; align-items: center; gap: var(--space-sm);
+  justify-content: center;
+}
+.compare-bar-pair {
+  display: flex; gap: 4px; align-items: center;
+}
+.compare-bar-side { display: flex; align-items: center; gap: var(--space-sm); flex: 1; }
+.compare-bar-left { flex-direction: row-reverse; }
+.compare-bar-track {
+  flex: 1; height: 10px; background: rgba(255,255,255,0.04);
+  border-radius: var(--radius-full); overflow: hidden;
+  position: relative;
+}
+.compare-bar-fill-left {
+  height: 100%; border-radius: var(--radius-full);
+  float: right;
+  animation: barGrow 0.8s ease forwards;
+}
+.compare-bar-fill-right {
+  height: 100%; border-radius: var(--radius-full);
+  animation: barGrow 0.8s ease forwards;
+}
+@keyframes barGrow { from { width: 0 !important; } }
+
+.compare-bar-val {
+  font-size: 0.8rem; font-weight: 700; min-width: 64px;
+  white-space: nowrap;
+}
+.compare-bar-left .compare-bar-val { text-align: right; }
+.compare-bar-right .compare-bar-val { text-align: left; }
+
+.compare-delta {
+  font-size: 0.7rem; font-weight: 700; padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+.delta-good { color: #00e676; background: rgba(0, 230, 118, 0.1); }
+.delta-bad { color: #f44336; background: rgba(244, 67, 54, 0.1); }
+
+/* ─── Radar Card ─────────────────────────────────────── */
+
+.compare-radar-card { padding: var(--space-xl); margin-bottom: var(--space-md); }
+

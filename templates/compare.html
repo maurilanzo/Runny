@@ -1,0 +1,537 @@
+{% extends "base.html" %}
+{% block title %}Compare{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+{% endblock %}
+
+{% block navbar %}
+<nav class="navbar">
+  <div class="navbar-brand">
+    <div class="logo" onclick="location.href='{{ url_for('dashboard') }}'">R</div>
+    <span onclick="location.href='{{ url_for('dashboard') }}'">Runny</span>
+    <!-- Sport Toggle -->
+    <div class="sport-toggle" onclick="toggleSport('{{ current_sport }}')">
+      <div class="sport-option {% if current_sport == 'Run' %}active{% endif %}">🏃</div>
+      <div class="sport-option {% if current_sport == 'Ride' %}active{% endif %}">🚴</div>
+      <div class="sport-slider {% if current_sport == 'Ride' %}ride-mode{% endif %}"></div>
+    </div>
+  </div>
+  <ul class="navbar-nav">
+    <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+    <li><a href="{{ url_for('activities') }}">Activities</a></li>
+    <li><a href="{{ url_for('compare_view') }}" class="active">Compare</a></li>
+  </ul>
+  <div class="navbar-user">
+    <a href="{{ url_for('logout') }}" class="btn btn-ghost text-sm">Logout</a>
+  </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="page-header">
+    <div class="flex items-center gap-md">
+      <h1>Compare Activities</h1>
+    </div>
+  </div>
+
+  <!-- Step 1: Select Source Activity -->
+  <div id="step-select" class="section">
+    <h2 class="section-title">① Choose an activity to compare</h2>
+    <div class="compare-search-wrap">
+      <input type="text" id="activity-search" class="form-input compare-search"
+             placeholder="🔍 Search activities by name or date..." oninput="filterActivities()" />
+    </div>
+    <div id="activity-picker" class="compare-picker">
+      {% for a in activities %}
+      <div class="card compare-pick-card fade-in"
+           data-id="{{ a.id }}"
+           data-name="{{ a.name }}"
+           data-date="{{ a.start_date[:10] }}"
+           data-type="{{ a.training_type or '' }}"
+           onclick="selectSource({{ a.id }})">
+        <div class="score-badge" style="background: {{ get_score_color(a.runny_score) }}20; color: {{ get_score_color(a.runny_score) }}">
+          {{ a.runny_score or '—' }}
+        </div>
+        <div class="activity-info">
+          <div class="activity-name">{{ a.name }}</div>
+          <div class="activity-meta">
+            <span>📅 {{ a.start_date[:10] }}</span>
+            <span>📏 {{ a.distance | distance_km }} km</span>
+            {% if current_sport == 'Ride' %}
+              <span>🚴 {{ a.pace | speed }} km/h</span>
+            {% else %}
+              <span>🏃 {{ a.pace | pace }} /km</span>
+            {% endif %}
+            {% if a.average_heartrate %}
+              <span>❤️ {{ a.average_heartrate | int }} bpm</span>
+            {% endif %}
+            {% if a.training_type %}
+              <span class="compare-type-badge">{{ a.training_type | capitalize }}</span>
+            {% else %}
+              <span class="compare-type-badge" style="opacity: .4">No type</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Step 2: Suggestions -->
+  <div id="step-suggestions" class="section" style="display: none;">
+    <div class="flex items-center justify-between mb-md">
+      <h2 class="section-title" style="margin-bottom: 0;">② Pick an activity to compare with</h2>
+      <button class="btn btn-ghost text-sm" onclick="resetCompare()">← Change source</button>
+    </div>
+
+    <!-- Source card (mini) -->
+    <div id="source-card" class="card compare-source-card"></div>
+
+    <div id="suggestions-loading" class="loading" style="display: none;">
+      <div class="spinner"></div>
+      <span class="loading-text">Finding similar activities…</span>
+    </div>
+
+    <div id="suggestions-list" class="compare-picker" style="margin-top: 16px;"></div>
+    <div id="suggestions-empty" class="card empty-state" style="display: none;">
+      <div class="empty-state-icon">🔍</div>
+      <p>No similar activities found for this training type.</p>
+      <p class="text-sm text-muted mt-md">Make sure you have other activities of the same type.</p>
+    </div>
+  </div>
+
+  <!-- Step 3: Comparison View -->
+  <div id="step-compare" class="section" style="display: none;">
+    <div class="flex items-center justify-between mb-md">
+      <h2 class="section-title" style="margin-bottom: 0;">Activity Comparison</h2>
+      <button class="btn btn-ghost text-sm" onclick="resetCompare()">← New comparison</button>
+    </div>
+
+    <!-- Similarity Score -->
+    <div id="similarity-header" class="compare-similarity-header card"></div>
+
+    <!-- Side-by-side comparison -->
+    <div class="compare-grid">
+      <!-- Left Activity -->
+      <div class="card compare-activity-col" id="compare-left"></div>
+      <!-- Right Activity -->
+      <div class="card compare-activity-col" id="compare-right"></div>
+    </div>
+
+    <!-- Metric Bars Comparison -->
+    <div class="card compare-bars-card" id="compare-bars"></div>
+
+    <!-- Radar Chart -->
+    <div class="card compare-radar-card">
+      <h3 class="compare-section-label">Metric Radar</h3>
+      <div style="position: relative; width: 100%; max-width: 400px; margin: 0 auto;">
+        <canvas id="radar-chart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const IS_RIDE = '{{ current_sport }}' === 'Ride';
+
+  // ─── Sport Toggle ──────────────────────────────────────
+  async function toggleSport(currentSport) {
+    const newSport = currentSport === 'Run' ? 'Ride' : 'Run';
+    try {
+      await fetch('/api/settings/sport', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sport: newSport }),
+      });
+      location.reload();
+    } catch (e) {
+      console.error('Failed to change sport:', e);
+    }
+  }
+
+  // ─── Helpers ───────────────────────────────────────────
+  function fmtPace(secPerKm) {
+    if (!secPerKm || secPerKm <= 0) return '—';
+    const m = Math.floor(secPerKm / 60);
+    const s = Math.round(secPerKm % 60);
+    return `${m}:${String(s).padStart(2, '0')} /km`;
+  }
+
+  function fmtSpeed(secPerKm) {
+    if (!secPerKm || secPerKm <= 0) return '—';
+    return `${(3600 / secPerKm).toFixed(1)} km/h`;
+  }
+
+  function fmtDist(meters) {
+    if (!meters) return '—';
+    return `${(meters / 1000).toFixed(2)} km`;
+  }
+
+  function fmtDuration(seconds) {
+    if (!seconds) return '—';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  function fmtPaceOrSpeed(secPerKm) {
+    return IS_RIDE ? fmtSpeed(secPerKm) : fmtPace(secPerKm);
+  }
+
+  function getScoreColor(score) {
+    if (score == null) return '#6b6f88';
+    if (score >= 80) return '#00e676';
+    if (score >= 60) return '#ffab00';
+    if (score >= 40) return '#ff9800';
+    return '#f44336';
+  }
+
+  // ─── Filter activities search ─────────────────────────
+  function filterActivities() {
+    const q = document.getElementById('activity-search').value.toLowerCase();
+    document.querySelectorAll('#activity-picker .compare-pick-card').forEach(card => {
+      const name = (card.dataset.name || '').toLowerCase();
+      const date = (card.dataset.date || '').toLowerCase();
+      card.style.display = (name.includes(q) || date.includes(q)) ? '' : 'none';
+    });
+  }
+
+  // ─── State ─────────────────────────────────────────────
+  let sourceActivity = null;
+  let compareActivity = null;
+  let radarChart = null;
+
+  // ─── Step 1: Select source ─────────────────────────────
+  async function selectSource(activityId) {
+    document.getElementById('step-select').style.display = 'none';
+    document.getElementById('step-suggestions').style.display = '';
+    document.getElementById('step-compare').style.display = 'none';
+
+    document.getElementById('suggestions-loading').style.display = '';
+    document.getElementById('suggestions-list').innerHTML = '';
+    document.getElementById('suggestions-empty').style.display = 'none';
+
+    try {
+      const res = await fetch(`/api/compare/${activityId}/suggestions`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast(data.error || 'Failed to load suggestions', 'error');
+        resetCompare();
+        return;
+      }
+
+      sourceActivity = data.target;
+      document.getElementById('source-card').innerHTML = renderSourceCard(sourceActivity);
+
+      document.getElementById('suggestions-loading').style.display = 'none';
+
+      if (data.suggestions.length === 0) {
+        document.getElementById('suggestions-empty').style.display = '';
+        return;
+      }
+
+      document.getElementById('suggestions-list').innerHTML = data.suggestions.map(a => renderSuggestionCard(a)).join('');
+    } catch (e) {
+      showToast('Error: ' + e.message, 'error');
+      resetCompare();
+    }
+  }
+
+  function renderSourceCard(a) {
+    const scoreColor = getScoreColor(a.runny_score);
+    return `
+      <div class="flex items-center gap-md" style="padding: 4px 0;">
+        <div class="score-badge" style="background: ${scoreColor}20; color: ${scoreColor}">
+          ${a.runny_score || '—'}
+        </div>
+        <div class="activity-info">
+          <div class="activity-name">${a.name}</div>
+          <div class="activity-meta">
+            <span>📅 ${(a.start_date || '').slice(0, 10)}</span>
+            <span>📏 ${fmtDist(a.distance)}</span>
+            <span>${IS_RIDE ? '🚴' : '🏃'} ${fmtPaceOrSpeed(a.pace)}</span>
+            ${a.average_heartrate ? `<span>❤️ ${Math.round(a.average_heartrate)} bpm</span>` : ''}
+            <span class="compare-type-badge">${(a.training_type || 'none').charAt(0).toUpperCase() + (a.training_type || 'none').slice(1)}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderSuggestionCard(a) {
+    const scoreColor = getScoreColor(a.runny_score);
+    const simPct = Math.round(a.similarity_pct || 0);
+    const simColor = simPct >= 80 ? '#00e676' : simPct >= 50 ? '#ffab00' : '#f44336';
+    return `
+      <div class="card compare-pick-card fade-in" onclick="selectComparison(${a.id}, this)" data-activity='${JSON.stringify(a).replace(/'/g, "&#39;")}'>
+        <div class="score-badge" style="background: ${scoreColor}20; color: ${scoreColor}">
+          ${a.runny_score || '—'}
+        </div>
+        <div class="activity-info">
+          <div class="activity-name">${a.name}</div>
+          <div class="activity-meta">
+            <span>📅 ${(a.start_date || '').slice(0, 10)}</span>
+            <span>📏 ${fmtDist(a.distance)}</span>
+            <span>${IS_RIDE ? '🚴' : '🏃'} ${fmtPaceOrSpeed(a.pace)}</span>
+            ${a.average_heartrate ? `<span>❤️ ${Math.round(a.average_heartrate)} bpm</span>` : ''}
+          </div>
+        </div>
+        <div class="compare-sim-badge" style="color: ${simColor}; border-color: ${simColor}30; background: ${simColor}10;">
+          ${simPct}%
+          <span class="text-xs">match</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // ─── Step 2: Select comparison target ──────────────────
+  function selectComparison(activityId, el) {
+    compareActivity = JSON.parse(el.dataset.activity);
+    showComparison();
+  }
+
+  // ─── Step 3: Show comparison ───────────────────────────
+  function showComparison() {
+    document.getElementById('step-select').style.display = 'none';
+    document.getElementById('step-suggestions').style.display = 'none';
+    document.getElementById('step-compare').style.display = '';
+
+    const a = sourceActivity;
+    const b = compareActivity;
+
+    // Similarity header
+    const simPct = Math.round(b.similarity_pct || 0);
+    const simColor = simPct >= 80 ? '#00e676' : simPct >= 50 ? '#ffab00' : '#f44336';
+
+    document.getElementById('similarity-header').innerHTML = `
+      <div class="compare-sim-header-inner">
+        <div class="compare-sim-ring" style="--sim-color: ${simColor}; --sim-pct: ${simPct}">
+          <svg viewBox="0 0 36 36" class="compare-sim-svg">
+            <path class="compare-sim-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+            <path class="compare-sim-fill" stroke="${simColor}" stroke-dasharray="${simPct}, 100"
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+          </svg>
+          <span class="compare-sim-value" style="color: ${simColor}">${simPct}%</span>
+        </div>
+        <div>
+          <div class="compare-sim-title">Similarity Score</div>
+          <div class="text-muted text-sm">Based on distance, pace, and average heart rate.</div>
+          <div class="compare-sim-tag" style="background: ${simColor}15; color: ${simColor}; border: 1px solid ${simColor}30;">
+            ${a.training_type ? a.training_type.charAt(0).toUpperCase() + a.training_type.slice(1) : 'Unknown'} · ${simPct >= 80 ? 'Very Similar' : simPct >= 50 ? 'Somewhat Similar' : 'Low Similarity'}
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Side-by-side cards
+    document.getElementById('compare-left').innerHTML = renderCompareCol(a, 'Source Activity', 'var(--accent)');
+    document.getElementById('compare-right').innerHTML = renderCompareCol(b, 'Compared Activity', '#4fc3f7');
+
+    // Metric bars
+    renderMetricBars(a, b);
+
+    // Radar chart
+    renderRadarChart(a, b);
+  }
+
+  function renderCompareCol(a, label, accentColor) {
+    const scoreColor = getScoreColor(a.runny_score);
+    return `
+      <div class="compare-col-label" style="color: ${accentColor}">${label}</div>
+      <div class="compare-col-title">${a.name}</div>
+      <div class="compare-col-date text-muted text-sm">📅 ${(a.start_date || '').slice(0, 10)}</div>
+      <div class="compare-col-score">
+        <div class="score-badge score-badge-lg" style="background: ${scoreColor}20; color: ${scoreColor}; margin: 12px auto;">
+          ${a.runny_score || '—'}
+        </div>
+      </div>
+      <div class="compare-col-metrics">
+        <div class="compare-stat">
+          <span class="compare-stat-label">Distance</span>
+          <span class="compare-stat-value">${fmtDist(a.distance)}</span>
+        </div>
+        <div class="compare-stat">
+          <span class="compare-stat-label">Duration</span>
+          <span class="compare-stat-value">${fmtDuration(a.moving_time)}</span>
+        </div>
+        <div class="compare-stat">
+          <span class="compare-stat-label">${IS_RIDE ? 'Speed' : 'Pace'}</span>
+          <span class="compare-stat-value">${fmtPaceOrSpeed(a.pace)}</span>
+        </div>
+        <div class="compare-stat">
+          <span class="compare-stat-label">Avg HR</span>
+          <span class="compare-stat-value">${a.average_heartrate ? Math.round(a.average_heartrate) + ' bpm' : '—'}</span>
+        </div>
+        <div class="compare-stat">
+          <span class="compare-stat-label">Elevation</span>
+          <span class="compare-stat-value">${a.total_elevation_gain ? Math.round(a.total_elevation_gain) + ' m' : '—'}</span>
+        </div>
+        <div class="compare-stat">
+          <span class="compare-stat-label">Max HR</span>
+          <span class="compare-stat-value">${a.max_heartrate ? Math.round(a.max_heartrate) + ' bpm' : '—'}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // ─── Metric Bars ───────────────────────────────────────
+  function renderMetricBars(a, b) {
+    const metrics = [
+      { label: 'Distance', key: 'distance', unit: 'km', transform: v => v / 1000, format: v => v.toFixed(2), higherBetter: true },
+      { label: IS_RIDE ? 'Speed' : 'Pace', key: 'pace', unit: IS_RIDE ? 'km/h' : '/km', transform: v => v, format: v => IS_RIDE ? fmtSpeed(v) : fmtPace(v), higherBetter: IS_RIDE },
+      { label: 'Avg HR', key: 'average_heartrate', unit: 'bpm', transform: v => v, format: v => Math.round(v) + '', higherBetter: false },
+      { label: 'Duration', key: 'moving_time', unit: '', transform: v => v, format: v => fmtDuration(v), higherBetter: true },
+      { label: 'Elevation', key: 'total_elevation_gain', unit: 'm', transform: v => v, format: v => Math.round(v) + '', higherBetter: null },
+      { label: 'Score', key: 'runny_score', unit: 'pts', transform: v => v, format: v => v + '', higherBetter: true },
+    ];
+
+    let html = '<h3 class="compare-section-label">Metric Comparison</h3>';
+
+    metrics.forEach(m => {
+      const valA = a[m.key] ? m.transform(a[m.key]) : 0;
+      const valB = b[m.key] ? m.transform(b[m.key]) : 0;
+      const maxVal = Math.max(valA, valB) || 1;
+
+      // For pace (lower is better for running), invert
+      let pctA, pctB;
+      if (m.key === 'pace' && !IS_RIDE) {
+        // Pace: lower is better, but bar should show proportional length
+        pctA = valA > 0 ? (valA / maxVal) * 100 : 0;
+        pctB = valB > 0 ? (valB / maxVal) * 100 : 0;
+      } else {
+        pctA = valA > 0 ? (valA / maxVal) * 100 : 0;
+        pctB = valB > 0 ? (valB / maxVal) * 100 : 0;
+      }
+
+      // Delta
+      let deltaHtml = '';
+      if (valA && valB && valA !== valB) {
+        let diff, pctDiff;
+        if (m.key === 'pace' && !IS_RIDE) {
+          diff = valB - valA; // positive = B is slower = A is better
+          pctDiff = ((diff / valA) * 100).toFixed(1);
+          const isGood = diff > 0; // A is faster
+          deltaHtml = `<span class="compare-delta ${isGood ? 'delta-good' : 'delta-bad'}">${isGood ? '▲' : '▼'} ${Math.abs(pctDiff)}%</span>`;
+        } else if (m.higherBetter !== null) {
+          diff = valA - valB;
+          pctDiff = ((diff / valB) * 100).toFixed(1);
+          const isGood = m.higherBetter ? diff > 0 : diff < 0;
+          deltaHtml = `<span class="compare-delta ${isGood ? 'delta-good' : 'delta-bad'}">${diff > 0 ? '▲' : '▼'} ${Math.abs(pctDiff)}%</span>`;
+        }
+      }
+
+      const fmtA = a[m.key] ? m.format(a[m.key]) : '—';
+      const fmtB = b[m.key] ? m.format(b[m.key]) : '—';
+
+      html += `
+        <div class="compare-bar-row">
+          <div class="compare-bar-label">${m.label} ${deltaHtml}</div>
+          <div class="compare-bar-pair">
+            <div class="compare-bar-side compare-bar-left">
+              <span class="compare-bar-val" style="color: var(--accent)">${fmtA}</span>
+              <div class="compare-bar-track">
+                <div class="compare-bar-fill-left" style="width: ${pctA}%; background: var(--gradient-accent);"></div>
+              </div>
+            </div>
+            <div class="compare-bar-side compare-bar-right">
+              <div class="compare-bar-track">
+                <div class="compare-bar-fill-right" style="width: ${pctB}%; background: linear-gradient(135deg, #4fc3f7, #0288d1);"></div>
+              </div>
+              <span class="compare-bar-val" style="color: #4fc3f7">${fmtB}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    document.getElementById('compare-bars').innerHTML = html;
+  }
+
+  // ─── Radar Chart ───────────────────────────────────────
+  function renderRadarChart(a, b) {
+    const canvas = document.getElementById('radar-chart');
+    if (radarChart) radarChart.destroy();
+
+    // Normalize metrics to 0-100 for a fair radar
+    const metricsForRadar = [
+      { label: 'Distance', valA: a.distance || 0, valB: b.distance || 0 },
+      { label: IS_RIDE ? 'Speed' : 'Pace', valA: a.pace || 0, valB: b.pace || 0 },
+      { label: 'Avg HR', valA: a.average_heartrate || 0, valB: b.average_heartrate || 0 },
+      { label: 'Elevation', valA: a.total_elevation_gain || 0, valB: b.total_elevation_gain || 0 },
+      { label: 'Score', valA: a.runny_score || 0, valB: b.runny_score || 0 },
+    ];
+
+    const normalizedA = [];
+    const normalizedB = [];
+    metricsForRadar.forEach(m => {
+      const mx = Math.max(m.valA, m.valB) || 1;
+      normalizedA.push(Math.round((m.valA / mx) * 100));
+      normalizedB.push(Math.round((m.valB / mx) * 100));
+    });
+
+    radarChart = new Chart(canvas, {
+      type: 'radar',
+      data: {
+        labels: metricsForRadar.map(m => m.label),
+        datasets: [
+          {
+            label: 'Source',
+            data: normalizedA,
+            borderColor: '#ff6b35',
+            backgroundColor: 'rgba(255, 107, 53, 0.15)',
+            borderWidth: 2,
+            pointBackgroundColor: '#ff6b35',
+            pointRadius: 4,
+          },
+          {
+            label: 'Compared',
+            data: normalizedB,
+            borderColor: '#4fc3f7',
+            backgroundColor: 'rgba(79, 195, 247, 0.15)',
+            borderWidth: 2,
+            pointBackgroundColor: '#4fc3f7',
+            pointRadius: 4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            labels: { color: '#a0a3b8', font: { family: 'Inter', size: 12 }, usePointStyle: true, pointStyle: 'circle' },
+          },
+        },
+        scales: {
+          r: {
+            angleLines: { color: 'rgba(255,255,255,0.06)' },
+            grid: { color: 'rgba(255,255,255,0.06)' },
+            pointLabels: { color: '#a0a3b8', font: { size: 12, family: 'Inter' } },
+            ticks: { display: false },
+            suggestedMin: 0,
+            suggestedMax: 100,
+          },
+        },
+      },
+    });
+  }
+
+  // ─── Reset ─────────────────────────────────────────────
+  function resetCompare() {
+    sourceActivity = null;
+    compareActivity = null;
+    document.getElementById('step-select').style.display = '';
+    document.getElementById('step-suggestions').style.display = 'none';
+    document.getElementById('step-compare').style.display = 'none';
+    document.getElementById('activity-search').value = '';
+    filterActivities();
+  }
+</script>
+{% endblock %}

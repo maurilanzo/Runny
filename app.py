@@ -4,6 +4,7 @@ Main Flask application
 """
 import os
 import json
+import math
 from flask import Flask, render_template, redirect, request, session, url_for, jsonify
 from dotenv import load_dotenv
 
@@ -586,6 +587,102 @@ def chart_data():
 
     improvement = compute_improvement(activities, window_days=window_days)
     return jsonify(improvement)
+
+
+# ─── Comparison ──────────────────────────────────────────
+
+@app.route("/compare")
+@require_auth
+def compare_view():
+    if not ensure_token():
+        return redirect(url_for("login"))
+
+    db = get_db()
+    sport_row = db.execute("SELECT value FROM settings WHERE key = 'current_sport'").fetchone()
+    current_sport = sport_row["value"] if sport_row else "Run"
+    sport_types = "('Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'E-BikeRide')" if current_sport == "Ride" else "('Run', 'TrailRun')"
+
+    rows = db.execute(
+        f"SELECT * FROM activities WHERE sport_type IN {sport_types} ORDER BY start_date DESC"
+    ).fetchall()
+    activities_list = [dict(a) for a in rows]
+
+    return render_template("compare.html", activities=activities_list, current_sport=current_sport)
+
+
+@app.route("/api/compare/<int:activity_id>/suggestions")
+@require_auth
+def compare_suggestions(activity_id):
+    """Return activities of the same training type, ranked by similarity.
+
+    Similarity is the Euclidean distance of min-max-normalized
+    (avg_heartrate, distance, pace) vectors.
+    """
+    db = get_db()
+    sport_row = db.execute("SELECT value FROM settings WHERE key = 'current_sport'").fetchone()
+    current_sport = sport_row["value"] if sport_row else "Run"
+    sport_types = "('Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'E-BikeRide')" if current_sport == "Ride" else "('Run', 'TrailRun')"
+
+    target = db.execute("SELECT * FROM activities WHERE id = ?", (activity_id,)).fetchone()
+    if not target:
+        return jsonify({"error": "Activity not found"}), 404
+    target = dict(target)
+
+    training_type = target.get("training_type")
+    if not training_type:
+        return jsonify({"error": "Source activity has no training type"}), 400
+
+    # Fetch all activities of the same type (excluding the target)
+    rows = db.execute(
+        f"""SELECT * FROM activities
+            WHERE sport_type IN {sport_types}
+              AND training_type = ?
+              AND id != ?
+            ORDER BY start_date DESC""",
+        (training_type, activity_id),
+    ).fetchall()
+    candidates = [dict(r) for r in rows]
+
+    if not candidates:
+        return jsonify({"suggestions": [], "target": target})
+
+    # Compute pairwise percentage-difference similarity.
+    # For each metric, diff = |a - b| / max(a, b), giving 0-1.
+    # Similarity = (1 - avg_diff) * 100.
+    t_hr = target.get("average_heartrate") or 0
+    t_dist = target.get("distance") or 0
+    t_pace = target.get("pace") or 0
+
+    def pct_diff(a, b):
+        """Return 0-1 fractional difference between two values."""
+        if a == 0 and b == 0:
+            return 0.0
+        return abs(a - b) / max(abs(a), abs(b))
+
+    scored = []
+    for cand in candidates:
+        c_hr = cand.get("average_heartrate") or 0
+        c_dist = cand.get("distance") or 0
+        c_pace = cand.get("pace") or 0
+
+        diffs = []
+        if t_hr > 0 or c_hr > 0:
+            diffs.append(pct_diff(t_hr, c_hr))
+        if t_dist > 0 or c_dist > 0:
+            diffs.append(pct_diff(t_dist, c_dist))
+        if t_pace > 0 or c_pace > 0:
+            diffs.append(pct_diff(t_pace, c_pace))
+
+        avg_diff = sum(diffs) / len(diffs) if diffs else 1.0
+        similarity_pct = round((1 - avg_diff) * 100, 1)
+
+        c = dict(cand)
+        c["similarity_pct"] = max(0, similarity_pct)
+        scored.append(c)
+
+    scored.sort(key=lambda x: -x["similarity_pct"])  # highest similarity first
+
+    return jsonify({"suggestions": scored[:20], "target": target})
 
 
 # ─── Run ──────────────────────────────────────────────────
